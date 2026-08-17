@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0c5561">
+    <meta name="description" content="Evaluacion sismica de Casasola y los embalses del Guadalhorce.">
+    <title>Alerta sismica de embalses</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="styles.css?v=2">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Seguridad de presas · DHCMA</p>
+          <h1>Alerta sísmica<br><span>por embalse</span></h1>
+          <p class="hero-subtitle">Lectura del IGN y evaluación independiente con las capas oficiales de intensidad.</p>
+        </div>
+        <div class="version-pill"><span></span> Motor conservador v4.1</div>
+      </header>
+
+      <section class="overview" aria-labelledby="overviewTitle">
+        <div class="section-title">
+          <div>
+            <p class="kicker">Resumen operativo</p>
+            <h2 id="overviewTitle">Estado de cada embalse</h2>
+          </div>
+          <p id="analysisSummary">Sin datos analizados</p>
+        </div>
+
+        <div class="reservoir-grid" id="reservoirGrid">
+          <article class="reservoir-card unknown" data-asset="casasola">
+            <div class="card-top"><span class="asset-code">CAS</span><span class="status-dot"></span></div>
+            <h3>Casasola</h3>
+            <strong class="asset-status">Sin analizar</strong>
+            <p class="asset-event">Esperando lectura del IGN</p>
+          </article>
+          <article class="reservoir-card unknown" data-asset="conde">
+            <div class="card-top"><span class="asset-code">CDG</span><span class="status-dot"></span></div>
+            <h3>El Conde de Guadalhorce</h3>
+            <strong class="asset-status">Sin analizar</strong>
+            <p class="asset-event">Capa común del sistema Guadalhorce</p>
+          </article>
+          <article class="reservoir-card unknown" data-asset="guadalhorce">
+            <div class="card-top"><span class="asset-code">GUA</span><span class="status-dot"></span></div>
+            <h3>Guadalhorce</h3>
+            <strong class="asset-status">Sin analizar</strong>
+            <p class="asset-event">Capa común del sistema Guadalhorce</p>
+          </article>
+          <article class="reservoir-card unknown" data-asset="guadalteba">
+            <div class="card-top"><span class="asset-code">GTE</span><span class="status-dot"></span></div>
+            <h3>Guadalteba</h3>
+            <strong class="asset-status">Sin analizar</strong>
+            <p class="asset-event">Capa común del sistema Guadalhorce</p>
+          </article>
+        </div>
+        <p class="shared-layer-note"><span>i</span> El Conde de Guadalhorce, Guadalhorce y Guadalteba comparten la capa técnica “Guadalhorce”; por ello reciben el mismo estado.</p>
+      </section>
+
+      <nav class="tabs" aria-label="Secciones">
+        <a href="#lectura">Lectura</a>
+        <a href="#mapa">Mapa</a>
+        <a href="#eventos">Eventos</a>
+        <a href="#detalle">Detalle</a>
+      </nav>
+
+      <section class="panel input-panel" id="lectura">
+        <div class="section-title compact">
+          <div><p class="kicker">Entrada</p><h2>Lectura sísmica</h2></div>
+          <span class="source-badge">IGN</span>
+        </div>
+        <div class="action-row">
+          <button class="primary" id="readIgnBtn" type="button"><span>↻</span> Leer sismos del IGN</button>
+          <button class="secondary" id="analyzeBtn" type="button">Analizar boletín</button>
+        </div>
+        <div class="inline-control">
+          <label for="ignDays">Periodo de consulta</label>
+          <div><input id="ignDays" type="number" min="1" max="10" value="7" inputmode="numeric"><span>días</span></div>
+        </div>
+        <div class="info-strip" id="sourceNote">
+          <span class="info-icon">↯</span>
+          <p><strong>Actualización automática.</strong> GitHub Actions renueva el listado del IGN cada 15 minutos.</p>
+        </div>
+        <label class="dropzone" for="fileInput" id="dropzone">
+          <input id="fileInput" type="file" accept=".pdf,.txt,.csv,.json,text/plain,application/pdf">
+          <span class="drop-icon">＋</span>
+          <span><strong>Cargar archivo del IGN</strong><small>PDF, TXT, CSV o JSON</small></span>
+        </label>
+        <label class="text-field">
+          <span>Texto del boletín</span>
+          <textarea id="textInput" spellcheck="false" placeholder="Pega aquí el aviso del IGN con latitud, longitud y magnitud..."></textarea>
+        </label>
+        <div class="minor-actions">
+          <button id="sampleBtn" type="button">Cargar ejemplo</button>
+          <button id="clearBtn" type="button">Limpiar análisis</button>
+        </div>
+      </section>
+
+      <section class="panel map-panel" id="mapa">
+        <div class="section-title compact">
+          <div><p class="kicker">Cartografía</p><h2>Capas de intensidad</h2></div>
+          <div class="map-tools">
+            <button type="button" data-map-action="out" aria-label="Alejar">−</button>
+            <button type="button" data-map-action="in" aria-label="Acercar">＋</button>
+            <button type="button" data-map-action="reset">Reajustar</button>
+          </div>
+        </div>
+        <div class="layer-switch" role="group" aria-label="Capa visible">
+          <button class="active" type="button" data-layer="casasola"><span class="line casasola"></span> Casasola</button>
+          <button type="button" data-layer="guadalhorce"><span class="line guadalhorce"></span> Sistema Guadalhorce</button>
+        </div>
+        <div class="map-frame" id="mapFrame">
+          <div class="map-layer" id="mapLayer">
+            <img class="map-base" src="assets/map-base.jpg" alt="Mapa base de la península y entorno">
+            <div class="satellite-tiles" id="satelliteTiles" aria-hidden="true"></div>
+            <svg class="vector-overlay" id="vectorOverlay" aria-hidden="true"></svg>
+            <div class="event-markers" id="eventMarkers"></div>
+            <div class="selected-marker" id="selectedMarker"><span></span><b id="selectedMarkerLabel"></b></div>
+          </div>
+          <div class="coord-tip" id="coordTip">Latitud · Longitud · Umbrales</div>
+        </div>
+        <div class="map-legend">
+          <span><i class="legend-quake"></i> Sismo analizado</span>
+          <span id="layerLegend"><i class="legend-line casasola"></i> Curvas Casasola</span>
+        </div>
+      </section>
+
+      <section class="panel events-panel" id="eventos">
+        <div class="section-title compact">
+          <div><p class="kicker">Últimos eventos</p><h2>Sismos analizados</h2></div>
+          <span id="ignSummary">Sin lectura</span>
+        </div>
+        <div class="table-wrap" id="eventList">
+          <p class="empty-state">Pulsa “Leer sismos del IGN” o analiza un boletín para obtener resultados.</p>
+        </div>
+      </section>
+
+      <section class="panel detail-panel" id="detalle">
+        <div class="section-title compact">
+          <div><p class="kicker">Trazabilidad</p><h2>Detalle del evento</h2></div>
+          <span id="detailEvent">Ninguno seleccionado</span>
+        </div>
+        <div class="metrics">
+          <div><span>Magnitud</span><strong id="detailMagnitude">−</strong></div>
+          <div><span>Intensidad Io</span><strong id="detailIntensity">−</strong></div>
+          <div><span>Coordenadas</span><strong id="detailCoords">−</strong></div>
+          <div><span>Zona</span><strong id="detailZone">−</strong></div>
+        </div>
+        <div class="layer-results" id="layerResults">
+          <p class="empty-state">Selecciona un evento para ver los umbrales aplicados.</p>
+        </div>
+      </section>
+
+      <section class="method-note">
+        <span>!</span>
+        <div><h2>Criterio conservador</h2><p>Ante datos incompletos o fuera del ámbito cartográfico, la aplicación solicita revisión manual. El resultado es orientativo y no sustituye el Plan de Emergencia ni la valoración técnica.</p></div>
+      </section>
+    </main>
+
+    <script src="reservoir-vector-data.js?v=2"></script>
+    <script src="core.js?v=2"></script>
+    <script src="app.js?v=2"></script>
+    <script>
+      if ("serviceWorker" in navigator && location.protocol !== "file:") {
+        navigator.serviceWorker.register("sw.js").catch(() => {});
+      }
+    </script>
+  </body>
+</html>

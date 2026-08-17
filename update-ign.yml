@@ -1,0 +1,43 @@
+name: Actualizar listado IGN
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  update-ign:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Descargar últimos terremotos del IGN
+        run: |
+          set -euo pipefail
+          curl -L --retry 3 --retry-delay 5 \
+            --user-agent "Alerta-Embalses/4.1" \
+            "https://www.ign.es/web/ign/portal/ultimos-terremotos" \
+            -o ign-terremotos.html
+          if ! grep -Eq 'terremoto0|<td[^>]*>es[0-9]{4}' ign-terremotos.html; then
+            echo "La respuesta del IGN no contiene filas de terremotos."
+            exit 1
+          fi
+
+      - name: Registrar fecha de actualización
+        run: date -u +"%Y-%m-%dT%H:%M:%SZ" > ign-terremotos-updated.txt
+
+      - name: Guardar cambios
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ign-terremotos.html ign-terremotos-updated.txt
+          if git diff --cached --quiet; then
+            echo "Sin cambios."
+          else
+            git commit -m "Actualizar listado IGN"
+            git push
+          fi

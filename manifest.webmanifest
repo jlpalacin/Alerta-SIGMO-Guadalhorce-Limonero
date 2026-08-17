@@ -1,0 +1,14 @@
+{
+  "name": "Alerta sísmica de embalses",
+  "short_name": "Alerta Embalses",
+  "description": "Estado de alerta sísmica de Casasola y los embalses del Guadalhorce.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f7f5",
+  "theme_color": "#0c5561",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
