@@ -453,7 +453,26 @@ function reportMapHtml(layerKey, data) {
     ? `<circle cx="${point.x}" cy="${point.y}" r="13" fill="#152c32" stroke="#fff" stroke-width="5"><title>${escapeHtml(data.event || "Evento")} · Io ${Core.formatThreshold(data.intensity)}</title></circle>`
     : "";
   const mapBaseUrl = new URL("assets/map-base.jpg", location.href).href;
-  return `<figure class="report-map"><svg viewBox="0 0 ${MAP.width} ${MAP.height}" role="img" aria-label="Mapa ${escapeHtml(label)} con el epicentro"><image href="${escapeHtml(mapBaseUrl)}" x="0" y="0" width="${MAP.width}" height="${MAP.height}" preserveAspectRatio="none"/>${paths}${marker}</svg><figcaption><strong>${escapeHtml(label)}</strong> · ${escapeHtml(data.event || "Evento")} · Io ${Core.formatThreshold(data.intensity)}. El punto oscuro señala el epicentro.</figcaption></figure>`;
+  const orthophotoUrl = pnoaReportUrl();
+  return `<figure class="report-map"><svg viewBox="0 0 ${MAP.width} ${MAP.height}" role="img" aria-label="Ortofoto PNOA con la capa ${escapeHtml(label)} y el epicentro"><image href="${escapeHtml(mapBaseUrl)}" x="0" y="0" width="${MAP.width}" height="${MAP.height}" preserveAspectRatio="none"/><image href="${escapeHtml(orthophotoUrl)}" x="0" y="0" width="${MAP.width}" height="${MAP.height}" preserveAspectRatio="none" opacity="0.9"/>${paths}${marker}</svg><figcaption><strong>${escapeHtml(label)}</strong> · ${escapeHtml(data.event || "Evento")} · Io ${Core.formatThreshold(data.intensity)}. El punto oscuro señala el epicentro. Base: <a href="https://pnoa.ign.es/pnoa-imagen/ortofotos-pnoa-maxima-actualidad" target="_blank" rel="noreferrer">Ortofoto PNOA máxima actualidad, IGN-CNIG</a>.</figcaption></figure>`;
+}
+
+function pnoaReportUrl() {
+  const url = new URL("https://www.ign.es/wms-inspire/pnoa-ma");
+  url.search = new URLSearchParams({
+    SERVICE: "WMS",
+    VERSION: "1.3.0",
+    REQUEST: "GetMap",
+    LAYERS: "OI.OrthoimageCoverage",
+    STYLES: "",
+    FORMAT: "image/png",
+    TRANSPARENT: "TRUE",
+    CRS: "EPSG:4326",
+    BBOX: `${MAP.south},${MAP.west},${MAP.north},${MAP.east}`,
+    WIDTH: "1600",
+    HEIGHT: "1027",
+  }).toString();
+  return url.href;
 }
 
 function reservoirDistances(data) {
