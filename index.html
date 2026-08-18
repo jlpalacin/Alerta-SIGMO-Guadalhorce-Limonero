@@ -8,7 +8,7 @@
     <title>Alerta sismica de embalses</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="styles.css?v=7">
+    <link rel="stylesheet" href="styles.css?v=8">
   </head>
   <body>
     <main class="app-shell">
@@ -18,7 +18,7 @@
           <h1>Alerta sísmica<br><span>por embalse</span></h1>
           <p class="hero-subtitle">Lectura del IGN y evaluación independiente con las capas oficiales de intensidad.</p>
         </div>
-        <div class="version-pill"><span></span> Motor conservador v4.4</div>
+        <div class="version-pill"><span></span> Motor conservador v4.5</div>
       </header>
 
       <section class="overview" aria-labelledby="overviewTitle">
@@ -150,6 +150,7 @@
         </div>
         <div class="metrics">
           <div><span>Magnitud</span><strong id="detailMagnitude">−</strong></div>
+          <div><span>Int. máxima IGN</span><strong id="detailMaxIntensity">−</strong></div>
           <div><span>Intensidad Io</span><strong id="detailIntensity">−</strong></div>
           <div><span>Coordenadas</span><strong id="detailCoords">−</strong></div>
           <div><span>Zona</span><strong id="detailZone">−</strong></div>
@@ -168,9 +169,9 @@
       </section>
     </main>
 
-    <script src="reservoir-vector-data.js?v=7"></script>
-    <script src="core.js?v=7"></script>
-    <script src="app.js?v=7"></script>
+    <script src="reservoir-vector-data.js?v=8"></script>
+    <script src="core.js?v=8"></script>
+    <script src="app.js?v=8"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("sw.js").catch(() => {});

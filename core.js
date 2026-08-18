@@ -108,6 +108,7 @@
     data.depthKm = toNumber(data.depthKm);
     data.magnitude = toNumber(data.magnitude);
     data.intensity = toNumber(data.intensity);
+    data.maxIntensity = toNumber(data.maxIntensity);
     data.reportedIntensity = data.intensity;
     data.pga = toNumber(data.pga);
     const reasons = [];
@@ -127,6 +128,15 @@
         reasons.push(`Mw ${formatNumber(data.mw)} e Io ${formatNumber(data.intensity)} calculadas desde ${data.magnitudeType || "magnitud"} ${formatNumber(data.magnitude)}.`);
       }
     }
+    if (data.intensity == null && data.maxIntensity != null) {
+      data.intensity = data.maxIntensity;
+      data.intensitySource = "reported-max";
+      data.intensityCalculation = `Sin magnitud disponible: Imax ${formatNumber(data.maxIntensity)} se usa como aproximacion conservadora de Io.`;
+      reasons.push(`No hay magnitud para calcular Io; se usa Imax ${formatNumber(data.maxIntensity)} como aproximacion conservadora.`);
+    }
+    if (data.maxIntensity != null && data.intensitySource === "estimated") {
+      reasons.push(`Imax ${formatNumber(data.maxIntensity)} se conserva como observacion separada y no se confunde con Io.`);
+    }
     if (data.intensity == null && data.pga != null) {
       data.intensitySource = "pga";
       data.intensityCalculation = "No se obtuvo Io; la decision se basa directamente en la PGA comunicada.";
@@ -144,7 +154,9 @@
       const direction = (match[3] || "").toLowerCase();
       return ["sur", "s", "oeste", "w", "o"].includes(direction) ? -Math.abs(value) : value;
     };
-    const intensityText = pick(/Intensidad\s*(?:EMS|epicentral|Io|I0)?[^0-9IVX]*([0-9]+(?:[,.][0-9]+)?|XII|XI|IX|VIII|VII|VI|IV|X|V)/i);
+    const explicitIntensityText = pick(/(?:Intensidad\s+(?:epicentral(?:\s*(?:Io|I0))?|Io|I0)|\b(?:Io|I0)\b)[^0-9IVX]*([0-9]+(?:[,.][0-9]+)?|XII|XI|IX|VIII|VII|VI|IV|X|V)/i);
+    const genericIntensityText = pick(/(?:Intensidad|Int\.)\s*(?:m[aá]x(?:ima)?\.?|max(?:ima)?\.?|EMS)?[^0-9IVX]*([0-9]+(?:[,.][0-9]+)?|XII|XI|IX|VIII|VII|VI|IV|X|V)/i);
+    const maxIntensityText = explicitIntensityText ? pick(/(?:Intensidad|Int\.)\s*(?:m[aá]x(?:ima)?\.?|max(?:ima)?\.?)[^0-9IVX]*([0-9]+(?:[,.][0-9]+)?|XII|XI|IX|VIII|VII|VI|IV|X|V)/i) : genericIntensityText;
     return {
       event: pick(/EVENTO:\s*([A-Za-z0-9_-]+)/i),
       utc: pick(/HORA\s+UTC:\s*([^\n]+)/i),
@@ -155,7 +167,9 @@
       lon: coordinate(/Longitud:\s*([0-9]+(?:[,.][0-9]+)?)\s*(grados)?\s*(este|oeste|E|W|O)?/i),
       magnitudeType: pick(/Magnitud\s*([A-Za-z0-9]+)?\s*:\s*[-+]?[0-9]+(?:[,.][0-9]+)?/i) || "Mw",
       magnitude: toNumber(pick(/Magnitud\s*[A-Za-z0-9]*\s*:\s*([-+]?[0-9]+(?:[,.][0-9]+)?)/i)),
-      intensity: intensityText ? parseIntensity(intensityText) : null,
+      intensity: explicitIntensityText ? parseIntensity(explicitIntensityText) : null,
+      maxIntensity: maxIntensityText ? parseIntensity(maxIntensityText) : null,
+      maxIntensityText,
       pga: toNumber(pick(/\bPGA\b[^0-9]*([0-9]+(?:[,.][0-9]+)?)/i)),
     };
   }

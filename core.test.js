@@ -48,6 +48,18 @@ assert.match(calculatedIntensity.data.intensityCalculation, /Io =/);
 const reportedIntensity = Core.evaluateEvent({ lat: 36.8068, lon: -4.4922056, intensity: 5.7 }, datasets);
 assert.equal(reportedIntensity.data.intensitySource, "reported");
 
+const mwWithMaximumIntensity = Core.evaluateEvent({ lat: 36.8068, lon: -4.4922056, magnitude: 5, magnitudeType: "Mw", maxIntensity: 5, maxIntensityText: "V" }, datasets);
+assert.equal(mwWithMaximumIntensity.data.intensitySource, "estimated");
+assert.equal(mwWithMaximumIntensity.data.mw, 5);
+assert.ok(Math.abs(mwWithMaximumIntensity.data.intensity - ((5 - 1.656) / 0.545)) < 1e-9);
+assert.equal(mwWithMaximumIntensity.data.maxIntensity, 5);
+
+const parsedMwBulletin = Core.parseBulletin("Magnitud Mw: 5\nIntensidad máxima: V");
+assert.equal(parsedMwBulletin.magnitudeType, "Mw");
+assert.equal(parsedMwBulletin.magnitude, 5);
+assert.equal(parsedMwBulletin.intensity, null);
+assert.equal(parsedMwBulletin.maxIntensity, 5);
+
 const highestIntensity = Core.highestIntensityResult([
   { data: { event: "reciente", intensity: 3.11 } },
   { data: { event: "maximo", intensity: 5.87 } },

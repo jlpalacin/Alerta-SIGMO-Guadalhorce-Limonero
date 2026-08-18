@@ -136,7 +136,7 @@ function parseIgnRecentHtml(html) {
   for (const row of doc.querySelectorAll("tr")) {
     const cells = [...row.querySelectorAll("td")].map((cell) => cell.textContent.replace(/\s+/g, " ").trim());
     if (cells.length < 11 || !/^es\d{4}/i.test(cells[0])) continue;
-    const intensity = Core.parseIntensity(cells[9]);
+    const maxIntensityText = cells[9] || "";
     const event = {
       event: cells[0],
       date: cells[1],
@@ -147,7 +147,8 @@ function parseIgnRecentHtml(html) {
       depthKm: Core.toNumber(cells[6]),
       magnitude: Core.toNumber(cells[7]),
       magnitudeType: cells[8] || "mbLg",
-      intensity,
+      maxIntensity: Core.parseIntensity(maxIntensityText),
+      maxIntensityText,
       zone: cells[10],
       utcDate: parseIgnUtcDate(cells[1], cells[2]),
     };
@@ -223,13 +224,14 @@ function renderEvents() {
       <td><button class="event-link" type="button" data-event-index="${index}">${escapeHtml(data.event || "Evento manual")}</button></td>
       <td>${escapeHtml([data.date, data.utc].filter(Boolean).join(" ") || data.utc || "−")}</td>
       <td>${Core.formatThreshold(data.magnitude)} ${escapeHtml(data.magnitudeType || "")}</td>
+      <td>${escapeHtml(data.maxIntensityText || Core.formatThreshold(data.maxIntensity))}</td>
       <td>${Core.formatThreshold(data.intensity)}</td>
       ${assetCells}
       <td>${escapeHtml(data.zone || "−")}</td>
     </tr>`;
   }).join("");
   list.innerHTML = `<table class="event-table">
-    <thead><tr><th>Evento</th><th>UTC</th><th>Magnitud</th><th>Io</th><th>Casasola</th><th>Conde</th><th>Guadalhorce</th><th>Guadalteba</th><th>Zona</th></tr></thead>
+    <thead><tr><th>Evento</th><th>UTC</th><th>Magnitud</th><th>Imax IGN</th><th>Io calculada</th><th>Casasola</th><th>Conde</th><th>Guadalhorce</th><th>Guadalteba</th><th>Zona</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
   for (const button of list.querySelectorAll("[data-event-index]")) {
@@ -244,6 +246,7 @@ function renderDetail() {
   if (!result) {
     $("detailEvent").textContent = "Ninguno seleccionado";
     $("detailMagnitude").textContent = "−";
+    $("detailMaxIntensity").textContent = "−";
     $("detailIntensity").textContent = "−";
     $("detailCoords").textContent = "−";
     $("detailZone").textContent = "−";
@@ -254,6 +257,7 @@ function renderDetail() {
   const data = result.data;
   $("detailEvent").textContent = data.event || "Evento manual";
   $("detailMagnitude").textContent = data.magnitude == null ? "−" : `${Core.formatNumber(data.magnitude)} ${data.magnitudeType || ""}`;
+  $("detailMaxIntensity").textContent = data.maxIntensityText || Core.formatThreshold(data.maxIntensity);
   $("detailIntensity").textContent = Core.formatThreshold(data.intensity);
   $("detailCoords").textContent = data.lat == null || data.lon == null ? "−" : `${Core.formatNumber(data.lat)}, ${Core.formatNumber(data.lon)}`;
   $("detailZone").textContent = data.zone || "−";
@@ -275,7 +279,10 @@ function calculationTraceHtml(result) {
       <li>Conversión a Mw: ${escapeHtml(data.magnitudeConversion || "magnitud expresada en Mw")} → <strong>Mw = ${Core.formatThreshold(data.mw)}</strong>.</li>
       <li>Relación aplicada: <code>Io = (Mw − 1,656) / 0,545</code>.</li>
       <li>Sustitución: <code>Io = (${Core.formatThreshold(data.mw)} − 1,656) / 0,545</code> → <strong>Io = ${Core.formatThreshold(data.intensity)}</strong>.</li>
+      ${data.maxIntensity != null ? `<li>El IGN comunica además <strong>Imax = ${escapeHtml(data.maxIntensityText || Core.formatThreshold(data.maxIntensity))}</strong>. Se conserva como intensidad máxima observada, pero no se interpreta como Io.</li>` : ""}
     </ol>`;
+  } else if (data.intensitySource === "reported-max") {
+    intensitySteps = `<p>No hay magnitud suficiente para calcular Io. Se usa <strong>Imax = ${escapeHtml(data.maxIntensityText || Core.formatThreshold(data.maxIntensity))}</strong> únicamente como aproximación conservadora y queda identificada como tal.</p>`;
   } else if (data.intensitySource === "pga") {
     intensitySteps = `<p>No se ha obtenido Io. El estado se decide directamente con la PGA: extraordinaria desde 9,4 cm/s² y Escenario 0 desde 26,5 cm/s².</p>`;
   } else {
@@ -379,20 +386,23 @@ function buildReportHtml(result) {
   const distanceDetails = distances.map(({ asset, distanceKm }) => `<li><strong>${escapeHtml(asset.label)}:</strong> φ₂ = ${Core.formatNumber(asset.lat)}°, λ₂ = ${Core.formatNumber(asset.lon)}° → <strong>d = ${formatDistance(distanceKm)}</strong>.</li>`).join("");
   const icoldRows = [...Core.ICOLD_ACTION_RADII].reverse().map((row) => `<tr><td>&gt; ${Core.formatNumber(row.magnitudeAbove)}</td><td>${formatDistance(row.distanceKm)}</td></tr>`).join("");
   const layers = ["casasola", "guadalhorce"].map((layerKey) => reportLayerHtml(result.layers[layerKey])).join("");
+  const reportMaps = ["casasola", "guadalhorce"].map((layerKey) => reportMapHtml(layerKey, data)).join("");
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Informe sísmico · ${escapeHtml(data.event || "Evento")}</title><style>
-    :root{--ink:#153237;--muted:#61767a;--line:#d9e3e1;--teal:#0d736e;--ordinary:#247047;--extra:#9b5b00;--zero:#b42318;--unknown:#617079}*{box-sizing:border-box}body{margin:0;background:#eef3f2;color:var(--ink);font-family:Arial,sans-serif;line-height:1.45}.page{max-width:1100px;margin:28px auto;padding:38px;background:#fff;box-shadow:0 8px 30px #1734381c}header{display:flex;justify-content:space-between;gap:24px;padding-bottom:22px;border-bottom:3px solid var(--teal)}h1{margin:0;font-size:27px}h2{margin:28px 0 12px;font-size:17px}h3{margin:0 0 10px;font-size:15px}.meta,.subtle{color:var(--muted);font-size:11px}.meta{text-align:right}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric,.card{padding:14px;border:1px solid var(--line);border-radius:10px}.metric span{display:block;color:var(--muted);font-size:11px}.metric strong{display:block;margin-top:6px;font-size:14px}.calculation{padding:16px 18px;border-left:4px solid var(--teal);background:#f4f8f7}.calculation p,.calculation li{margin:6px 0;font-size:13px}.formula{padding:9px 11px;border-radius:7px;background:#e4efed;font-family:Consolas,monospace;font-size:12px}code{background:#e4efed;padding:2px 4px;border-radius:4px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{padding:9px;border:1px solid var(--line);text-align:left;vertical-align:top}th{background:#f3f7f6}.pill{display:inline-block;padding:4px 8px;border-radius:20px;font-weight:700;white-space:nowrap}.ordinary{color:var(--ordinary);background:#e8f4ec}.extra{color:var(--extra);background:#fff0c8}.zero{color:var(--zero);background:#fde9e7}.unknown{color:var(--unknown);background:#edf1f2}.layers{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card p,.card li{font-size:12px}.thresholds{display:flex;gap:18px;margin:10px 0}.thresholds span{color:var(--muted);font-size:11px}.thresholds strong{display:block;color:var(--ink);font-size:15px}.icold-layout{display:grid;grid-template-columns:1.4fr .6fr;gap:14px}.source{color:var(--muted);font-size:10px}.notice{margin-top:28px;padding:14px;background:#fff8e7;color:#66542d;font-size:11px}.toolbar{max-width:1100px;margin:20px auto 0;text-align:right}.toolbar button{padding:10px 16px;border:0;border-radius:8px;background:var(--teal);color:#fff;font-weight:700;cursor:pointer}@media(max-width:700px){.page{margin:0;padding:22px}.grid,.layers{grid-template-columns:1fr 1fr}.icold-layout{grid-template-columns:1fr}header{display:block}.meta{text-align:left;margin-top:10px}.distance-table{display:block;overflow-x:auto}}@media print{body{background:#fff}.toolbar{display:none}.page{max-width:none;margin:0;padding:0;box-shadow:none}thead{display:table-header-group}.card,.calculation{break-inside:avoid}}
+    :root{--ink:#153237;--muted:#61767a;--line:#d9e3e1;--teal:#0d736e;--ordinary:#247047;--extra:#9b5b00;--zero:#b42318;--unknown:#617079}*{box-sizing:border-box}body{margin:0;background:#eef3f2;color:var(--ink);font-family:Arial,sans-serif;line-height:1.45}.page{max-width:1100px;margin:28px auto;padding:38px;background:#fff;box-shadow:0 8px 30px #1734381c}header{display:flex;justify-content:space-between;gap:24px;padding-bottom:22px;border-bottom:3px solid var(--teal)}h1{margin:0;font-size:27px}h2{margin:28px 0 12px;font-size:17px}h3{margin:0 0 10px;font-size:15px}.meta,.subtle{color:var(--muted);font-size:11px}.meta{text-align:right}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric,.card{padding:14px;border:1px solid var(--line);border-radius:10px}.metric span{display:block;color:var(--muted);font-size:11px}.metric strong{display:block;margin-top:6px;font-size:14px}.report-maps{display:grid;grid-template-columns:1fr 1fr;gap:14px}.report-map{margin:0;padding:10px;border:1px solid var(--line);border-radius:10px;background:#f4f8f7;break-inside:avoid}.report-map svg{display:block;width:100%;height:auto;border-radius:7px;background:#b8c7c2}.report-map figcaption{padding:8px 3px 1px;font-size:11px}.calculation{padding:16px 18px;border-left:4px solid var(--teal);background:#f4f8f7}.calculation p,.calculation li{margin:6px 0;font-size:13px}.formula{padding:9px 11px;border-radius:7px;background:#e4efed;font-family:Consolas,monospace;font-size:12px}code{background:#e4efed;padding:2px 4px;border-radius:4px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{padding:9px;border:1px solid var(--line);text-align:left;vertical-align:top}th{background:#f3f7f6}.pill{display:inline-block;padding:4px 8px;border-radius:20px;font-weight:700;white-space:nowrap}.ordinary{color:var(--ordinary);background:#e8f4ec}.extra{color:var(--extra);background:#fff0c8}.zero{color:var(--zero);background:#fde9e7}.unknown{color:var(--unknown);background:#edf1f2}.layers{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card p,.card li{font-size:12px}.thresholds{display:flex;gap:18px;margin:10px 0}.thresholds span{color:var(--muted);font-size:11px}.thresholds strong{display:block;color:var(--ink);font-size:15px}.icold-layout{display:grid;grid-template-columns:1.4fr .6fr;gap:14px}.source{color:var(--muted);font-size:10px}.notice{margin-top:28px;padding:14px;background:#fff8e7;color:#66542d;font-size:11px}.toolbar{max-width:1100px;margin:20px auto 0;text-align:right}.toolbar button{padding:10px 16px;border:0;border-radius:8px;background:var(--teal);color:#fff;font-weight:700;cursor:pointer}@media(max-width:700px){.page{margin:0;padding:22px}.grid,.layers,.report-maps{grid-template-columns:1fr}.icold-layout{grid-template-columns:1fr}header{display:block}.meta{text-align:left;margin-top:10px}.distance-table{display:block;overflow-x:auto}}@media print{body{background:#fff}.toolbar{display:none}.page{max-width:none;margin:0;padding:0;box-shadow:none}thead{display:table-header-group}.card,.calculation,.report-map{break-inside:avoid}}
   </style></head><body><div class="toolbar"><button type="button" onclick="window.print()">Imprimir / Guardar como PDF</button></div><main class="page">
     <header><div><p style="margin:0;color:var(--teal);font-size:12px;font-weight:700">SEGURIDAD DE PRESAS · DHCMA</p><h1>Informe de evaluación sísmica</h1></div><div class="meta">Generado el ${escapeHtml(generated)}<br>Aplicación Alerta sísmica por embalse</div></header>
     <h2>Evento seleccionado</h2><div class="grid">
       <div class="metric"><span>Evento</span><strong>${escapeHtml(data.event || "Evento manual")}</strong></div>
       <div class="metric"><span>Fecha y hora UTC</span><strong>${escapeHtml([data.date, data.utc].filter(Boolean).join(" ") || "−")}</strong></div>
       <div class="metric"><span>Magnitud</span><strong>${data.magnitude == null ? "−" : `${Core.formatThreshold(data.magnitude)} ${escapeHtml(data.magnitudeType || "")}`}</strong></div>
+      <div class="metric"><span>Intensidad máxima observada</span><strong>${escapeHtml(data.maxIntensityText || Core.formatThreshold(data.maxIntensity))}</strong></div>
       <div class="metric"><span>Intensidad Io</span><strong>${Core.formatThreshold(data.intensity)}</strong></div>
       <div class="metric"><span>Latitud</span><strong>${Core.formatThreshold(data.lat)}</strong></div>
       <div class="metric"><span>Longitud</span><strong>${Core.formatThreshold(data.lon)}</strong></div>
       <div class="metric"><span>Profundidad</span><strong>${depthKm == null ? "−" : `${Core.formatThreshold(depthKm)} km`}</strong></div>
       <div class="metric"><span>Zona epicentral</span><strong>${escapeHtml(data.zone || "−")}</strong></div>
     </div>
+    <h2>Mapas del evento</h2><div class="report-maps">${reportMaps}</div>
     <h2>Cálculo de Io</h2><div class="calculation">${reportCalculationHtml(data)}</div>
     <h2>Cálculo de la distancia epicentral</h2><div class="calculation"><p>Se aplica la fórmula de Haversine sobre una esfera de radio medio <strong>R = ${Core.formatNumber(Core.EARTH_RADIUS_KM)} km</strong>.</p><p class="formula">Δφ = φ₂ − φ₁; Δλ = λ₂ − λ₁<br>a = sen²(Δφ/2) + cos(φ₁) · cos(φ₂) · sen²(Δλ/2)<br>d = 2R · atan2(√a, √(1−a))</p><p>Epicentro: φ₁ = ${Core.formatThreshold(data.lat)}°, λ₁ = ${Core.formatThreshold(data.lon)}°.</p><ul>${distanceDetails}</ul><p class="source">Coordenadas de presa: Inventario de Presas y Embalses de MITECO (códigos indicados en la tabla).</p></div>
     <h2>Estado, distancia y comprobación por embalse</h2><div class="distance-table"><table><thead><tr><th>Embalse</th><th>Distancia epicentral</th><th>Radio de acción ICOLD por magnitud</th><th>Nota de 50 km</th><th>Estado por capas</th><th>Comparación de intensidad</th></tr></thead><tbody>${assetRows}</tbody></table></div>
@@ -404,7 +414,8 @@ function buildReportHtml(result) {
 
 function reportCalculationHtml(data) {
   if (data.intensitySource === "reported") return `<p>La intensidad <strong>Io = ${Core.formatThreshold(data.intensity)}</strong> se tomó directamente del boletín. No se aplicó conversión de magnitud.</p>`;
-  if (data.intensitySource === "estimated") return `<p>Magnitud de entrada: <strong>${Core.formatThreshold(data.magnitude)} ${escapeHtml(data.magnitudeType || "")}</strong>.</p><p>${escapeHtml(data.magnitudeConversion || "Conversión a Mw")}.</p><p>Relación: <code>Io = (Mw − 1,656) / 0,545</code>.</p><p>Sustitución: <code>Io = (${Core.formatThreshold(data.mw)} − 1,656) / 0,545</code> → <strong>Io = ${Core.formatThreshold(data.intensity)}</strong>.</p>`;
+  if (data.intensitySource === "estimated") return `<p>Magnitud de entrada: <strong>${Core.formatThreshold(data.magnitude)} ${escapeHtml(data.magnitudeType || "")}</strong>.</p><p>${escapeHtml(data.magnitudeConversion || "Conversión a Mw")}.</p><p>Relación: <code>Io = (Mw − 1,656) / 0,545</code>.</p><p>Sustitución: <code>Io = (${Core.formatThreshold(data.mw)} − 1,656) / 0,545</code> → <strong>Io = ${Core.formatThreshold(data.intensity)}</strong>.</p>${data.maxIntensity != null ? `<p>El IGN comunica por separado <strong>Imax = ${escapeHtml(data.maxIntensityText || Core.formatThreshold(data.maxIntensity))}</strong>. Es la intensidad máxima observada y no se ha usado como si fuera Io.</p>` : ""}`;
+  if (data.intensitySource === "reported-max") return `<p>No hay magnitud suficiente para aplicar la relación de Io. Se usa <strong>Imax = ${escapeHtml(data.maxIntensityText || Core.formatThreshold(data.maxIntensity))}</strong> como aproximación conservadora, dejando constancia de que no es una Io calculada.</p>`;
   if (data.intensitySource === "pga") return `<p>No se obtuvo Io. La evaluación se realizó con la PGA comunicada: <strong>${Core.formatThreshold(data.pga)} cm/s²</strong>.</p>`;
   return "<p>No hay datos suficientes para calcular Io; se requiere revisión manual.</p>";
 }
@@ -413,6 +424,25 @@ function reportLayerHtml(decision) {
   const thresholds = decision.thresholds || {};
   const label = decision.layerKey === "casasola" ? "Casasola" : "Sistema Guadalhorce";
   return `<article class="card"><h3>${label}</h3><p>Consulta espacial en las coordenadas del epicentro. Polígonos coincidentes: <strong>${thresholds.matches ?? 0}</strong>.</p><p>Se obtiene <strong>Extraordinaria = mínimo de IntensidadExtraordinaria</strong> y <strong>Escenario 0 = mínimo de Intensidad</strong> entre los polígonos coincidentes.</p><div class="thresholds"><div><span>Extraordinaria</span><strong>${Core.formatThreshold(thresholds.extra)}</strong></div><div><span>Escenario 0</span><strong>${Core.formatThreshold(thresholds.zero)}</strong></div></div><p class="formula">${escapeHtml(decisionEquation(decision))}</p><ul>${decision.reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}</ul></article>`;
+}
+
+function reportMapHtml(layerKey, data) {
+  const collection = DATASETS[layerKey];
+  const label = layerKey === "casasola" ? "Casasola" : "Sistema Guadalhorce";
+  const stroke = layerKey === "casasola" ? "#db5d3f" : "#177e89";
+  const paths = (collection?.features || []).map((feature) => {
+    const pathData = geometryToPath(feature.geometry);
+    if (!pathData) return "";
+    const extra = feature.properties?.IntensidadExtraordinaria;
+    const zero = feature.properties?.Intensidad;
+    return `<path d="${escapeHtml(pathData)}" fill="none" stroke="${stroke}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><title>Extra ${escapeHtml(extra)} · Escenario 0 ${escapeHtml(zero)}</title></path>`;
+  }).join("");
+  const point = data.lat == null || data.lon == null ? null : latLonToPixel(data.lat, data.lon);
+  const marker = point && point.x >= 0 && point.x <= MAP.width && point.y >= 0 && point.y <= MAP.height
+    ? `<circle cx="${point.x}" cy="${point.y}" r="13" fill="#152c32" stroke="#fff" stroke-width="5"><title>${escapeHtml(data.event || "Evento")} · Io ${Core.formatThreshold(data.intensity)}</title></circle>`
+    : "";
+  const mapBaseUrl = new URL("assets/map-base.jpg", location.href).href;
+  return `<figure class="report-map"><svg viewBox="0 0 ${MAP.width} ${MAP.height}" role="img" aria-label="Mapa ${escapeHtml(label)} con el epicentro"><image href="${escapeHtml(mapBaseUrl)}" x="0" y="0" width="${MAP.width}" height="${MAP.height}" preserveAspectRatio="none"/>${paths}${marker}</svg><figcaption><strong>${escapeHtml(label)}</strong> · ${escapeHtml(data.event || "Evento")} · Io ${Core.formatThreshold(data.intensity)}. El punto oscuro señala el epicentro.</figcaption></figure>`;
 }
 
 function reservoirDistances(data) {
