@@ -5,10 +5,10 @@ const DATASETS = window.RESERVOIR_VECTOR_DATA;
 const { LEVELS, SEVERITY } = Core;
 
 const ASSETS = [
-  { key: "casasola", label: "Casasola", layer: "casasola" },
-  { key: "conde", label: "El Conde de Guadalhorce", layer: "guadalhorce" },
-  { key: "guadalhorce", label: "Guadalhorce", layer: "guadalhorce" },
-  { key: "guadalteba", label: "Guadalteba", layer: "guadalhorce" },
+  { key: "casasola", label: "Casasola", layer: "casasola", lat: 36.8016, lon: -4.4945, mitecoCode: "6290014" },
+  { key: "conde", label: "El Conde de Guadalhorce", layer: "guadalhorce", lat: 36.9352, lon: -4.7995, mitecoCode: "6290035" },
+  { key: "guadalhorce", label: "Guadalhorce", layer: "guadalhorce", lat: 36.9427, lon: -4.8009, mitecoCode: "6290030" },
+  { key: "guadalteba", label: "Guadalteba", layer: "guadalhorce", lat: 36.9426, lon: -4.7998, mitecoCode: "6290026" },
 ];
 
 const MAP = {
@@ -364,13 +364,23 @@ function buildReportHtml(result) {
   const data = result.data;
   const depthKm = data.depthKm ?? data.depth;
   const generated = new Intl.DateTimeFormat("es-ES", { dateStyle: "long", timeStyle: "short" }).format(new Date());
-  const assetRows = ASSETS.map((asset) => {
+  const actionRadiusKm = Core.icoldActionRadiusKm(data.magnitude);
+  const distances = reservoirDistances(data);
+  const assetRows = distances.map(({ asset, distanceKm }) => {
     const decision = result.layers[asset.layer];
-    return `<tr><td>${escapeHtml(asset.label)}</td><td><span class="pill ${statusClass(decision.level)}">${escapeHtml(Core.statusLabel(decision.level))}</span></td><td>${escapeHtml(decisionEquation(decision))}</td></tr>`;
+    const actionCheck = distanceKm == null
+      ? "Distancia no calculable"
+      : actionRadiusKm == null
+        ? "Radio no definido en la tabla (M ≤ 4 o sin magnitud)"
+        : distanceKm <= actionRadiusKm ? `Dentro (≤ ${formatDistance(actionRadiusKm)})` : `Fuera (> ${formatDistance(actionRadiusKm)})`;
+    const extraordinary50 = distanceKm == null ? "No calculable" : distanceKm > 50 ? "No, distancia > 50 km" : "Dentro del límite de 50 km";
+    return `<tr><td><strong>${escapeHtml(asset.label)}</strong><br><span class="subtle">MITECO ${asset.mitecoCode}</span></td><td>${formatDistance(distanceKm)}</td><td>${escapeHtml(actionCheck)}</td><td>${escapeHtml(extraordinary50)}</td><td><span class="pill ${statusClass(decision.level)}">${escapeHtml(Core.statusLabel(decision.level))}</span></td><td>${escapeHtml(decisionEquation(decision))}</td></tr>`;
   }).join("");
+  const distanceDetails = distances.map(({ asset, distanceKm }) => `<li><strong>${escapeHtml(asset.label)}:</strong> φ₂ = ${Core.formatNumber(asset.lat)}°, λ₂ = ${Core.formatNumber(asset.lon)}° → <strong>d = ${formatDistance(distanceKm)}</strong>.</li>`).join("");
+  const icoldRows = [...Core.ICOLD_ACTION_RADII].reverse().map((row) => `<tr><td>&gt; ${Core.formatNumber(row.magnitudeAbove)}</td><td>${formatDistance(row.distanceKm)}</td></tr>`).join("");
   const layers = ["casasola", "guadalhorce"].map((layerKey) => reportLayerHtml(result.layers[layerKey])).join("");
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Informe sísmico · ${escapeHtml(data.event || "Evento")}</title><style>
-    :root{--ink:#153237;--muted:#61767a;--line:#d9e3e1;--teal:#0d736e;--ordinary:#247047;--extra:#9b5b00;--zero:#b42318;--unknown:#617079}*{box-sizing:border-box}body{margin:0;background:#eef3f2;color:var(--ink);font-family:Arial,sans-serif;line-height:1.45}.page{max-width:980px;margin:28px auto;padding:38px;background:#fff;box-shadow:0 8px 30px #1734381c}header{display:flex;justify-content:space-between;gap:24px;padding-bottom:22px;border-bottom:3px solid var(--teal)}h1{margin:0;font-size:27px}h2{margin:28px 0 12px;font-size:17px}h3{margin:0 0 10px;font-size:15px}.meta{color:var(--muted);font-size:12px;text-align:right}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric,.card{padding:14px;border:1px solid var(--line);border-radius:10px}.metric span{display:block;color:var(--muted);font-size:11px}.metric strong{display:block;margin-top:6px;font-size:14px}.calculation{padding:16px 18px;border-left:4px solid var(--teal);background:#f4f8f7}.calculation p{margin:6px 0;font-size:13px}code{background:#e4efed;padding:2px 4px;border-radius:4px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:10px;border:1px solid var(--line);text-align:left;vertical-align:top}th{background:#f3f7f6}.pill{display:inline-block;padding:4px 8px;border-radius:20px;font-weight:700;white-space:nowrap}.ordinary{color:var(--ordinary);background:#e8f4ec}.extra{color:var(--extra);background:#fff0c8}.zero{color:var(--zero);background:#fde9e7}.unknown{color:var(--unknown);background:#edf1f2}.layers{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card p,.card li{font-size:12px}.thresholds{display:flex;gap:18px;margin:10px 0}.thresholds span{color:var(--muted);font-size:11px}.thresholds strong{display:block;color:var(--ink);font-size:15px}.notice{margin-top:28px;padding:14px;background:#fff8e7;color:#66542d;font-size:11px}.toolbar{max-width:980px;margin:20px auto 0;text-align:right}.toolbar button{padding:10px 16px;border:0;border-radius:8px;background:var(--teal);color:#fff;font-weight:700;cursor:pointer}@media(max-width:700px){.page{margin:0;padding:22px}.grid,.layers{grid-template-columns:1fr 1fr}header{display:block}.meta{text-align:left;margin-top:10px}}@media print{body{background:#fff}.toolbar{display:none}.page{max-width:none;margin:0;padding:0;box-shadow:none}thead{display:table-header-group}.card{break-inside:avoid}}
+    :root{--ink:#153237;--muted:#61767a;--line:#d9e3e1;--teal:#0d736e;--ordinary:#247047;--extra:#9b5b00;--zero:#b42318;--unknown:#617079}*{box-sizing:border-box}body{margin:0;background:#eef3f2;color:var(--ink);font-family:Arial,sans-serif;line-height:1.45}.page{max-width:1100px;margin:28px auto;padding:38px;background:#fff;box-shadow:0 8px 30px #1734381c}header{display:flex;justify-content:space-between;gap:24px;padding-bottom:22px;border-bottom:3px solid var(--teal)}h1{margin:0;font-size:27px}h2{margin:28px 0 12px;font-size:17px}h3{margin:0 0 10px;font-size:15px}.meta,.subtle{color:var(--muted);font-size:11px}.meta{text-align:right}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric,.card{padding:14px;border:1px solid var(--line);border-radius:10px}.metric span{display:block;color:var(--muted);font-size:11px}.metric strong{display:block;margin-top:6px;font-size:14px}.calculation{padding:16px 18px;border-left:4px solid var(--teal);background:#f4f8f7}.calculation p,.calculation li{margin:6px 0;font-size:13px}.formula{padding:9px 11px;border-radius:7px;background:#e4efed;font-family:Consolas,monospace;font-size:12px}code{background:#e4efed;padding:2px 4px;border-radius:4px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{padding:9px;border:1px solid var(--line);text-align:left;vertical-align:top}th{background:#f3f7f6}.pill{display:inline-block;padding:4px 8px;border-radius:20px;font-weight:700;white-space:nowrap}.ordinary{color:var(--ordinary);background:#e8f4ec}.extra{color:var(--extra);background:#fff0c8}.zero{color:var(--zero);background:#fde9e7}.unknown{color:var(--unknown);background:#edf1f2}.layers{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card p,.card li{font-size:12px}.thresholds{display:flex;gap:18px;margin:10px 0}.thresholds span{color:var(--muted);font-size:11px}.thresholds strong{display:block;color:var(--ink);font-size:15px}.icold-layout{display:grid;grid-template-columns:1.4fr .6fr;gap:14px}.source{color:var(--muted);font-size:10px}.notice{margin-top:28px;padding:14px;background:#fff8e7;color:#66542d;font-size:11px}.toolbar{max-width:1100px;margin:20px auto 0;text-align:right}.toolbar button{padding:10px 16px;border:0;border-radius:8px;background:var(--teal);color:#fff;font-weight:700;cursor:pointer}@media(max-width:700px){.page{margin:0;padding:22px}.grid,.layers{grid-template-columns:1fr 1fr}.icold-layout{grid-template-columns:1fr}header{display:block}.meta{text-align:left;margin-top:10px}.distance-table{display:block;overflow-x:auto}}@media print{body{background:#fff}.toolbar{display:none}.page{max-width:none;margin:0;padding:0;box-shadow:none}thead{display:table-header-group}.card,.calculation{break-inside:avoid}}
   </style></head><body><div class="toolbar"><button type="button" onclick="window.print()">Imprimir / Guardar como PDF</button></div><main class="page">
     <header><div><p style="margin:0;color:var(--teal);font-size:12px;font-weight:700">SEGURIDAD DE PRESAS · DHCMA</p><h1>Informe de evaluación sísmica</h1></div><div class="meta">Generado el ${escapeHtml(generated)}<br>Aplicación Alerta sísmica por embalse</div></header>
     <h2>Evento seleccionado</h2><div class="grid">
@@ -384,9 +394,11 @@ function buildReportHtml(result) {
       <div class="metric"><span>Zona epicentral</span><strong>${escapeHtml(data.zone || "−")}</strong></div>
     </div>
     <h2>Cálculo de Io</h2><div class="calculation">${reportCalculationHtml(data)}</div>
-    <h2>Estado de alerta por embalse</h2><table><thead><tr><th>Embalse</th><th>Estado</th><th>Comparación aplicada</th></tr></thead><tbody>${assetRows}</tbody></table>
-    <h2>Umbrales de las capas de intensidad</h2><div class="layers">${layers}</div>
-    <div class="notice"><strong>Nota:</strong> resultado orientativo. No sustituye el Plan de Emergencia de Presa ni la valoración técnica de los organismos competentes.</div>
+    <h2>Cálculo de la distancia epicentral</h2><div class="calculation"><p>Se aplica la fórmula de Haversine sobre una esfera de radio medio <strong>R = ${Core.formatNumber(Core.EARTH_RADIUS_KM)} km</strong>.</p><p class="formula">Δφ = φ₂ − φ₁; Δλ = λ₂ − λ₁<br>a = sen²(Δφ/2) + cos(φ₁) · cos(φ₂) · sen²(Δλ/2)<br>d = 2R · atan2(√a, √(1−a))</p><p>Epicentro: φ₁ = ${Core.formatThreshold(data.lat)}°, λ₁ = ${Core.formatThreshold(data.lon)}°.</p><ul>${distanceDetails}</ul><p class="source">Coordenadas de presa: Inventario de Presas y Embalses de MITECO (códigos indicados en la tabla).</p></div>
+    <h2>Estado, distancia y comprobación por embalse</h2><div class="distance-table"><table><thead><tr><th>Embalse</th><th>Distancia epicentral</th><th>Radio de acción ICOLD por magnitud</th><th>Nota de 50 km</th><th>Estado por capas</th><th>Comparación de intensidad</th></tr></thead><tbody>${assetRows}</tbody></table></div>
+    <h2>Criterio de distancias ICOLD (2016)</h2><div class="icold-layout"><div class="calculation"><p>Para este criterio se emplea la magnitud de entrada del boletín (<strong>${Core.formatThreshold(data.magnitude)} ${escapeHtml(data.magnitudeType || "")}</strong>). El radio de acción obtenido de la tabla es <strong>${formatDistance(actionRadiusKm)}</strong>.</p><p>Conforme a la información aportada, <strong>no se consideraría una situación extraordinaria por sismo en presas situadas a más de 50 km del epicentro</strong>.</p><p>Esta comprobación de distancia se muestra de forma complementaria y no modifica automáticamente el estado calculado mediante las capas de intensidad.</p></div><table><thead><tr><th>Magnitud</th><th>Distancia</th></tr></thead><tbody>${icoldRows}</tbody></table></div>
+    <h2>Detalle de los escenarios de intensidad</h2><div class="layers">${layers}</div>
+    <div class="notice"><strong>Nota:</strong> resultado orientativo. La regla ICOLD se presenta como comprobación complementaria. El informe no sustituye el Plan de Emergencia de Presa ni la valoración técnica de los organismos competentes.</div>
   </main></body></html>`;
 }
 
@@ -400,7 +412,18 @@ function reportCalculationHtml(data) {
 function reportLayerHtml(decision) {
   const thresholds = decision.thresholds || {};
   const label = decision.layerKey === "casasola" ? "Casasola" : "Sistema Guadalhorce";
-  return `<article class="card"><h3>${label}</h3><div class="thresholds"><div><span>Extraordinaria</span><strong>${Core.formatThreshold(thresholds.extra)}</strong></div><div><span>Escenario 0</span><strong>${Core.formatThreshold(thresholds.zero)}</strong></div></div><p><strong>${escapeHtml(decisionEquation(decision))}</strong></p><ul>${decision.reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}</ul></article>`;
+  return `<article class="card"><h3>${label}</h3><p>Consulta espacial en las coordenadas del epicentro. Polígonos coincidentes: <strong>${thresholds.matches ?? 0}</strong>.</p><p>Se obtiene <strong>Extraordinaria = mínimo de IntensidadExtraordinaria</strong> y <strong>Escenario 0 = mínimo de Intensidad</strong> entre los polígonos coincidentes.</p><div class="thresholds"><div><span>Extraordinaria</span><strong>${Core.formatThreshold(thresholds.extra)}</strong></div><div><span>Escenario 0</span><strong>${Core.formatThreshold(thresholds.zero)}</strong></div></div><p class="formula">${escapeHtml(decisionEquation(decision))}</p><ul>${decision.reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}</ul></article>`;
+}
+
+function reservoirDistances(data) {
+  return ASSETS.map((asset) => ({
+    asset,
+    distanceKm: Core.haversineDistanceKm(data.lat, data.lon, asset.lat, asset.lon),
+  }));
+}
+
+function formatDistance(value) {
+  return value == null ? "−" : `${Number(value).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km`;
 }
 
 function safeFilePart(value) {
@@ -553,6 +576,7 @@ function applyMapTransform() {
   const layer = $("mapLayer");
   layer.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
   layer.style.setProperty("--marker-inverse-scale", String(1 / view.scale));
+  layer.style.setProperty("--line-inverse-scale", String(1 / view.scale));
   renderSatelliteTiles();
 }
 

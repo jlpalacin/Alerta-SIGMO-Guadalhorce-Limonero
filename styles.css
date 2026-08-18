@@ -237,7 +237,7 @@ button:disabled { cursor: wait; opacity: 0.62; }
 .satellite-tiles { overflow: hidden; opacity: 0.74; }
 .satellite-tiles img { position: absolute; display: block; }
 .vector-overlay { overflow: visible; }
-.vector-zone { fill: none; stroke-width: 2.7; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 1px rgba(255,255,255,0.9)); }
+.vector-zone { fill: none; stroke-width: calc(2.7px * var(--line-inverse-scale, 1)); stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 1px rgba(255,255,255,0.9)); }
 .vector-zone.casasola { stroke: var(--casasola); }
 .vector-zone.guadalhorce { stroke: var(--guadalhorce); }
 .event-markers { pointer-events: none; }

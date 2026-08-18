@@ -57,9 +57,11 @@ La consola mostrará la URL del ordenador y las URLs para un móvil conectado a 
 
 El workflow actualiza `ign-terremotos.html` cada 15 minutos. El service worker no guarda ese fichero de forma persistente.
 
-Si el móvil tenía instalada una versión anterior, abre una vez la dirección de GitHub Pages añadiendo `?v=5`. La versión actual mostrará `Motor conservador v4.3` y, desde entonces, las navegaciones usarán red primero para comprobar actualizaciones.
+Si el móvil tenía instalada una versión anterior, abre una vez la dirección de GitHub Pages añadiendo `?v=7`. La versión actual mostrará `Motor conservador v4.4` y, desde entonces, las navegaciones usarán red primero para comprobar actualizaciones.
 
 La versión 4.3 selecciona inicialmente el evento con la mayor intensidad Io disponible. Desde el detalle puede generarse un informe completo del evento seleccionado y abrirse para imprimirlo o guardarlo como PDF.
+
+La versión 4.4 mantiene constante en pantalla el grosor de las isoyetas al ampliar el mapa. El informe desarrolla los cálculos de Io, los umbrales de los escenarios y la distancia epicentral Haversine a cada presa. También incorpora como comprobación complementaria la tabla ICOLD (2016): magnitud >4, >5, >6, >7 y >8 con radios de 25, 50, 80, 125 y 200 km, respectivamente, y la nota de exclusión de situación extraordinaria más allá de 50 km facilitada por el usuario.
 
 ## Archivos de datos
 

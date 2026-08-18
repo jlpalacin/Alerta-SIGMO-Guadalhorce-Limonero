@@ -62,4 +62,12 @@ assert.equal(bulletin.lon, -4.5);
 assert.equal(bulletin.magnitudeType, "mbLg");
 assert.equal(Core.parseIntensity("VI"), 6);
 
-console.log("OK: capas, umbrales, jerarquía, PGA, conversión, selección por Io y parser verificados.");
+assert.ok(Math.abs(Core.haversineDistanceKm(36.8016, -4.4945, 36.8016, -4.4945)) < 1e-9);
+assert.ok(Math.abs(Core.haversineDistanceKm(36, -4, 37, -4) - 111.195) < 0.01);
+assert.equal(Core.icoldActionRadiusKm(4), null);
+assert.equal(Core.icoldActionRadiusKm(4.1), 25);
+assert.equal(Core.icoldActionRadiusKm(5), 25);
+assert.equal(Core.icoldActionRadiusKm(5.1), 50);
+assert.equal(Core.icoldActionRadiusKm(8.1), 200);
+
+console.log("OK: capas, umbrales, jerarquía, PGA, conversión, distancia ICOLD, selección por Io y parser verificados.");

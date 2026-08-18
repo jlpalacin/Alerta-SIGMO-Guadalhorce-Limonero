@@ -19,6 +19,15 @@
     [LEVELS.ZERO]: 2,
   });
 
+  const EARTH_RADIUS_KM = 6371.0088;
+  const ICOLD_ACTION_RADII = Object.freeze([
+    Object.freeze({ magnitudeAbove: 8, distanceKm: 200 }),
+    Object.freeze({ magnitudeAbove: 7, distanceKm: 125 }),
+    Object.freeze({ magnitudeAbove: 6, distanceKm: 80 }),
+    Object.freeze({ magnitudeAbove: 5, distanceKm: 50 }),
+    Object.freeze({ magnitudeAbove: 4, distanceKm: 25 }),
+  ]);
+
   // Las capas corregidas comparten la misma correspondencia de campos.
   const LAYERS = Object.freeze({
     casasola: {
@@ -46,6 +55,23 @@
     if (!match) return null;
     const roman = { IV: 4, V: 5, VI: 6, VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12 };
     return roman[match[1].toUpperCase()] ?? toNumber(match[1]);
+  }
+
+  function haversineDistanceKm(lat1, lon1, lat2, lon2) {
+    const values = [lat1, lon1, lat2, lon2].map(toNumber);
+    if (values.some((value) => value == null)) return null;
+    const [startLat, startLon, endLat, endLon] = values.map((value) => value * Math.PI / 180);
+    const deltaLat = endLat - startLat;
+    const deltaLon = endLon - startLon;
+    const a = Math.sin(deltaLat / 2) ** 2
+      + Math.cos(startLat) * Math.cos(endLat) * Math.sin(deltaLon / 2) ** 2;
+    return 2 * EARTH_RADIUS_KM * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0, 1 - a)));
+  }
+
+  function icoldActionRadiusKm(magnitude) {
+    const numericMagnitude = toNumber(magnitude);
+    if (numericMagnitude == null) return null;
+    return ICOLD_ACTION_RADII.find((row) => numericMagnitude > row.magnitudeAbove)?.distanceKm ?? null;
   }
 
   function normalizeMagnitudeType(type = "") {
@@ -296,9 +322,13 @@
   return {
     LEVELS,
     SEVERITY,
+    EARTH_RADIUS_KM,
+    ICOLD_ACTION_RADII,
     LAYERS,
     toNumber,
     parseIntensity,
+    haversineDistanceKm,
+    icoldActionRadiusKm,
     toMomentMagnitude,
     enrichEvent,
     parseBulletin,
