@@ -45,6 +45,7 @@ init();
 function init() {
   $("readIgnBtn").addEventListener("click", runIgnRead);
   $("analyzeBtn").addEventListener("click", runBulletinAnalysis);
+  $("reportBtn").addEventListener("click", generateSelectedReport);
   $("sampleBtn").addEventListener("click", async () => {
     $("textInput").value = SAMPLE_TEXT;
     await runBulletinAnalysis();
@@ -93,7 +94,7 @@ async function runIgnRead() {
       .sort((a, b) => (b.utcDate?.getTime() || 0) - (a.utcDate?.getTime() || 0));
     if (!events.length) throw new Error(`no se encontraron eventos válidos en los últimos ${days} días`);
     state.results = events.map((event) => Core.evaluateEvent(event, DATASETS));
-    state.selected = conditioningResult(state.results) || state.results[0];
+    state.selected = Core.highestIntensityResult(state.results) || conditioningResult(state.results) || state.results[0];
     renderAll();
   } catch (error) {
     setNotice(`No se pudo leer el listado del IGN: ${error.message}`, true);
@@ -213,11 +214,12 @@ function renderEvents() {
     list.innerHTML = '<p class="empty-state">Pulsa “Leer sismos del IGN” o analiza un boletín para obtener resultados.</p>';
     return;
   }
-  summary.textContent = `${state.results.length} analizado${state.results.length === 1 ? "" : "s"}`;
+  summary.textContent = `${state.results.length} analizado${state.results.length === 1 ? "" : "s"} · selección inicial: mayor Io`;
   const rows = state.results.map((result, index) => {
     const data = result.data;
     const assetCells = ASSETS.map((asset) => statusPill(result.layers[asset.layer].level)).join("");
-    return `<tr>
+    const selected = result === state.selected;
+    return `<tr class="${selected ? "selected-event" : ""}"${selected ? ' aria-current="true"' : ""}>
       <td><button class="event-link" type="button" data-event-index="${index}">${escapeHtml(data.event || "Evento manual")}</button></td>
       <td>${escapeHtml([data.date, data.utc].filter(Boolean).join(" ") || data.utc || "−")}</td>
       <td>${Core.formatThreshold(data.magnitude)} ${escapeHtml(data.magnitudeType || "")}</td>
@@ -237,6 +239,8 @@ function renderEvents() {
 
 function renderDetail() {
   const result = state.selected;
+  $("reportBtn").disabled = !result;
+  $("reportStatus").textContent = "";
   if (!result) {
     $("detailEvent").textContent = "Ninguno seleccionado";
     $("detailMagnitude").textContent = "−";
@@ -327,9 +331,80 @@ function decisionEquation(decision) {
 
 function selectResult(result) {
   state.selected = result;
+  renderEvents();
   renderDetail();
   renderMapMarkers();
   $("detalle").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function generateSelectedReport() {
+  if (!state.selected) {
+    setNotice("Selecciona un evento antes de generar el informe.", true);
+    return;
+  }
+  const html = buildReportHtml(state.selected);
+  const reportWindow = window.open("", "_blank");
+  if (reportWindow) {
+    reportWindow.document.open();
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+    $("reportStatus").textContent = "Informe abierto en una pestaña nueva.";
+    return;
+  }
+  const blobUrl = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = blobUrl;
+  link.download = `informe-${safeFilePart(state.selected.data.event || "evento")}.html`;
+  link.click();
+  $("reportStatus").textContent = "Informe descargado. Ábrelo para imprimirlo o guardarlo como PDF.";
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+}
+
+function buildReportHtml(result) {
+  const data = result.data;
+  const depthKm = data.depthKm ?? data.depth;
+  const generated = new Intl.DateTimeFormat("es-ES", { dateStyle: "long", timeStyle: "short" }).format(new Date());
+  const assetRows = ASSETS.map((asset) => {
+    const decision = result.layers[asset.layer];
+    return `<tr><td>${escapeHtml(asset.label)}</td><td><span class="pill ${statusClass(decision.level)}">${escapeHtml(Core.statusLabel(decision.level))}</span></td><td>${escapeHtml(decisionEquation(decision))}</td></tr>`;
+  }).join("");
+  const layers = ["casasola", "guadalhorce"].map((layerKey) => reportLayerHtml(result.layers[layerKey])).join("");
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Informe sísmico · ${escapeHtml(data.event || "Evento")}</title><style>
+    :root{--ink:#153237;--muted:#61767a;--line:#d9e3e1;--teal:#0d736e;--ordinary:#247047;--extra:#9b5b00;--zero:#b42318;--unknown:#617079}*{box-sizing:border-box}body{margin:0;background:#eef3f2;color:var(--ink);font-family:Arial,sans-serif;line-height:1.45}.page{max-width:980px;margin:28px auto;padding:38px;background:#fff;box-shadow:0 8px 30px #1734381c}header{display:flex;justify-content:space-between;gap:24px;padding-bottom:22px;border-bottom:3px solid var(--teal)}h1{margin:0;font-size:27px}h2{margin:28px 0 12px;font-size:17px}h3{margin:0 0 10px;font-size:15px}.meta{color:var(--muted);font-size:12px;text-align:right}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric,.card{padding:14px;border:1px solid var(--line);border-radius:10px}.metric span{display:block;color:var(--muted);font-size:11px}.metric strong{display:block;margin-top:6px;font-size:14px}.calculation{padding:16px 18px;border-left:4px solid var(--teal);background:#f4f8f7}.calculation p{margin:6px 0;font-size:13px}code{background:#e4efed;padding:2px 4px;border-radius:4px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:10px;border:1px solid var(--line);text-align:left;vertical-align:top}th{background:#f3f7f6}.pill{display:inline-block;padding:4px 8px;border-radius:20px;font-weight:700;white-space:nowrap}.ordinary{color:var(--ordinary);background:#e8f4ec}.extra{color:var(--extra);background:#fff0c8}.zero{color:var(--zero);background:#fde9e7}.unknown{color:var(--unknown);background:#edf1f2}.layers{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card p,.card li{font-size:12px}.thresholds{display:flex;gap:18px;margin:10px 0}.thresholds span{color:var(--muted);font-size:11px}.thresholds strong{display:block;color:var(--ink);font-size:15px}.notice{margin-top:28px;padding:14px;background:#fff8e7;color:#66542d;font-size:11px}.toolbar{max-width:980px;margin:20px auto 0;text-align:right}.toolbar button{padding:10px 16px;border:0;border-radius:8px;background:var(--teal);color:#fff;font-weight:700;cursor:pointer}@media(max-width:700px){.page{margin:0;padding:22px}.grid,.layers{grid-template-columns:1fr 1fr}header{display:block}.meta{text-align:left;margin-top:10px}}@media print{body{background:#fff}.toolbar{display:none}.page{max-width:none;margin:0;padding:0;box-shadow:none}thead{display:table-header-group}.card{break-inside:avoid}}
+  </style></head><body><div class="toolbar"><button type="button" onclick="window.print()">Imprimir / Guardar como PDF</button></div><main class="page">
+    <header><div><p style="margin:0;color:var(--teal);font-size:12px;font-weight:700">SEGURIDAD DE PRESAS · DHCMA</p><h1>Informe de evaluación sísmica</h1></div><div class="meta">Generado el ${escapeHtml(generated)}<br>Aplicación Alerta sísmica por embalse</div></header>
+    <h2>Evento seleccionado</h2><div class="grid">
+      <div class="metric"><span>Evento</span><strong>${escapeHtml(data.event || "Evento manual")}</strong></div>
+      <div class="metric"><span>Fecha y hora UTC</span><strong>${escapeHtml([data.date, data.utc].filter(Boolean).join(" ") || "−")}</strong></div>
+      <div class="metric"><span>Magnitud</span><strong>${data.magnitude == null ? "−" : `${Core.formatThreshold(data.magnitude)} ${escapeHtml(data.magnitudeType || "")}`}</strong></div>
+      <div class="metric"><span>Intensidad Io</span><strong>${Core.formatThreshold(data.intensity)}</strong></div>
+      <div class="metric"><span>Latitud</span><strong>${Core.formatThreshold(data.lat)}</strong></div>
+      <div class="metric"><span>Longitud</span><strong>${Core.formatThreshold(data.lon)}</strong></div>
+      <div class="metric"><span>Profundidad</span><strong>${depthKm == null ? "−" : `${Core.formatThreshold(depthKm)} km`}</strong></div>
+      <div class="metric"><span>Zona epicentral</span><strong>${escapeHtml(data.zone || "−")}</strong></div>
+    </div>
+    <h2>Cálculo de Io</h2><div class="calculation">${reportCalculationHtml(data)}</div>
+    <h2>Estado de alerta por embalse</h2><table><thead><tr><th>Embalse</th><th>Estado</th><th>Comparación aplicada</th></tr></thead><tbody>${assetRows}</tbody></table>
+    <h2>Umbrales de las capas de intensidad</h2><div class="layers">${layers}</div>
+    <div class="notice"><strong>Nota:</strong> resultado orientativo. No sustituye el Plan de Emergencia de Presa ni la valoración técnica de los organismos competentes.</div>
+  </main></body></html>`;
+}
+
+function reportCalculationHtml(data) {
+  if (data.intensitySource === "reported") return `<p>La intensidad <strong>Io = ${Core.formatThreshold(data.intensity)}</strong> se tomó directamente del boletín. No se aplicó conversión de magnitud.</p>`;
+  if (data.intensitySource === "estimated") return `<p>Magnitud de entrada: <strong>${Core.formatThreshold(data.magnitude)} ${escapeHtml(data.magnitudeType || "")}</strong>.</p><p>${escapeHtml(data.magnitudeConversion || "Conversión a Mw")}.</p><p>Relación: <code>Io = (Mw − 1,656) / 0,545</code>.</p><p>Sustitución: <code>Io = (${Core.formatThreshold(data.mw)} − 1,656) / 0,545</code> → <strong>Io = ${Core.formatThreshold(data.intensity)}</strong>.</p>`;
+  if (data.intensitySource === "pga") return `<p>No se obtuvo Io. La evaluación se realizó con la PGA comunicada: <strong>${Core.formatThreshold(data.pga)} cm/s²</strong>.</p>`;
+  return "<p>No hay datos suficientes para calcular Io; se requiere revisión manual.</p>";
+}
+
+function reportLayerHtml(decision) {
+  const thresholds = decision.thresholds || {};
+  const label = decision.layerKey === "casasola" ? "Casasola" : "Sistema Guadalhorce";
+  return `<article class="card"><h3>${label}</h3><div class="thresholds"><div><span>Extraordinaria</span><strong>${Core.formatThreshold(thresholds.extra)}</strong></div><div><span>Escenario 0</span><strong>${Core.formatThreshold(thresholds.zero)}</strong></div></div><p><strong>${escapeHtml(decisionEquation(decision))}</strong></p><ul>${decision.reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}</ul></article>`;
+}
+
+function safeFilePart(value) {
+  return String(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9_-]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase() || "evento";
 }
 
 function conditioningResult(results) {

@@ -8,7 +8,7 @@
     <title>Alerta sismica de embalses</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="styles.css?v=3">
+    <link rel="stylesheet" href="styles.css?v=5">
   </head>
   <body>
     <main class="app-shell">
@@ -18,7 +18,7 @@
           <h1>Alerta sísmica<br><span>por embalse</span></h1>
           <p class="hero-subtitle">Lectura del IGN y evaluación independiente con las capas oficiales de intensidad.</p>
         </div>
-        <div class="version-pill"><span></span> Motor conservador v4.2</div>
+        <div class="version-pill"><span></span> Motor conservador v4.3</div>
       </header>
 
       <section class="overview" aria-labelledby="overviewTitle">
@@ -140,7 +140,13 @@
       <section class="panel detail-panel" id="detalle">
         <div class="section-title compact">
           <div><p class="kicker">Trazabilidad</p><h2>Detalle del evento</h2></div>
-          <span id="detailEvent">Ninguno seleccionado</span>
+          <div class="detail-actions">
+            <span id="detailEvent">Ninguno seleccionado</span>
+            <div class="report-controls">
+              <button class="report-button" id="reportBtn" type="button" disabled>Generar informe</button>
+              <span class="report-status" id="reportStatus" role="status" aria-live="polite"></span>
+            </div>
+          </div>
         </div>
         <div class="metrics">
           <div><span>Magnitud</span><strong id="detailMagnitude">−</strong></div>
@@ -162,9 +168,9 @@
       </section>
     </main>
 
-    <script src="reservoir-vector-data.js?v=3"></script>
-    <script src="core.js?v=3"></script>
-    <script src="app.js?v=3"></script>
+    <script src="reservoir-vector-data.js?v=5"></script>
+    <script src="core.js?v=5"></script>
+    <script src="app.js?v=5"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("sw.js").catch(() => {});

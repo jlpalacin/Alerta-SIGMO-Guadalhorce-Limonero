@@ -263,6 +263,8 @@ button:disabled { cursor: wait; opacity: 0.62; }
 .event-table td { padding: 11px 12px; border-top: 1px solid var(--line); font-size: 0.75rem; vertical-align: middle; }
 .event-link { border: 0; background: transparent; color: var(--teal); font-weight: 800; text-decoration: underline; text-decoration-color: #b5ceca; text-underline-offset: 3px; }
 .event-table tr:hover td { background: #fafcfa; }
+.event-table tr.selected-event td { background: #eaf4f2; box-shadow: inset 0 1px #c9dfdb, inset 0 -1px #c9dfdb; }
+.event-table tr.selected-event .event-link::after { content: " · seleccionada"; color: var(--muted); font-size: 0.62rem; font-weight: 650; text-decoration: none; }
 .status-pill { display: inline-block; min-width: 82px; padding: 5px 7px; border-radius: 999px; font-size: 0.65rem; font-weight: 800; text-align: center; }
 .status-pill.ordinary { color: var(--ordinary); background: var(--ordinary-bg); }
 .status-pill.extra { color: #9b5b00; background: var(--extra-bg); }
@@ -270,6 +272,13 @@ button:disabled { cursor: wait; opacity: 0.62; }
 .status-pill.unknown { color: var(--unknown); background: var(--unknown-bg); }
 .empty-state { margin: 0; padding: 36px 18px; color: var(--muted); font-size: 0.82rem; text-align: center; }
 
+.detail-actions { display: flex; align-items: center; gap: 10px; }
+.detail-actions > span { color: var(--muted); font-size: 0.75rem; }
+.report-controls { display: flex; align-items: center; gap: 8px; }
+.report-button { min-height: 36px; padding: 8px 13px; border: 0; border-radius: 9px; background: var(--teal); color: #fff; font-size: 0.72rem; font-weight: 800; }
+.report-button:hover:not(:disabled) { background: var(--teal-dark); }
+.report-button:disabled { cursor: not-allowed; opacity: 0.45; }
+.report-status { max-width: 190px; color: var(--ordinary); font-size: 0.64rem; line-height: 1.3; }
 .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .metrics > div { min-height: 88px; padding: 14px; border: 1px solid var(--line); border-radius: 13px; background: #fafcfa; }
 .metrics span { display: block; margin-bottom: 9px; color: var(--muted); font-size: 0.68rem; }
@@ -316,6 +325,10 @@ button:disabled { cursor: wait; opacity: 0.62; }
   .overview, .panel { padding: 18px; border-radius: 19px; }
   .section-title { align-items: flex-start; }
   .section-title > p { max-width: 130px; text-align: right; }
+  .detail-panel .section-title { gap: 12px; }
+  .detail-actions { align-items: flex-end; flex-direction: column; }
+  .report-controls { align-items: flex-end; flex-direction: column; }
+  .report-status { text-align: right; }
   .reservoir-grid { gap: 9px; }
   .reservoir-card { min-height: 170px; padding: 15px; }
   .reservoir-card h3 { min-height: 42px; margin-top: 21px; font-size: 0.9rem; }

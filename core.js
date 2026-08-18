@@ -261,6 +261,21 @@
     return decisions.reduce((worst, item) => SEVERITY[item.level] > SEVERITY[worst.level] ? item : worst, decisions[0]);
   }
 
+  function highestIntensityResult(results) {
+    let best = null;
+    let highest = -Infinity;
+    for (const result of results || []) {
+      const rawIntensity = result?.data?.intensity;
+      if (rawIntensity == null || rawIntensity === "") continue;
+      const intensity = Number(rawIntensity);
+      if (Number.isFinite(intensity) && intensity > highest) {
+        best = result;
+        highest = intensity;
+      }
+    }
+    return best;
+  }
+
   function statusLabel(level) {
     return {
       [LEVELS.ZERO]: "Escenario 0",
@@ -292,6 +307,7 @@
     evaluateLayer,
     evaluateEvent,
     worstDecision,
+    highestIntensityResult,
     statusLabel,
     formatThreshold,
     formatNumber,

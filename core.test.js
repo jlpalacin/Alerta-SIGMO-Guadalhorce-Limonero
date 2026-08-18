@@ -48,10 +48,18 @@ assert.match(calculatedIntensity.data.intensityCalculation, /Io =/);
 const reportedIntensity = Core.evaluateEvent({ lat: 36.8068, lon: -4.4922056, intensity: 5.7 }, datasets);
 assert.equal(reportedIntensity.data.intensitySource, "reported");
 
+const highestIntensity = Core.highestIntensityResult([
+  { data: { event: "reciente", intensity: 3.11 } },
+  { data: { event: "maximo", intensity: 5.87 } },
+  { data: { event: "intermedio", intensity: 4.49 } },
+]);
+assert.equal(highestIntensity.data.event, "maximo");
+assert.equal(Core.highestIntensityResult([{ data: { intensity: null } }]), null);
+
 const bulletin = Core.parseBulletin("Latitud: 36.8 grados norte\nLongitud: 4.5 grados oeste\nMagnitud mbLg: 4.3");
 assert.equal(bulletin.lat, 36.8);
 assert.equal(bulletin.lon, -4.5);
 assert.equal(bulletin.magnitudeType, "mbLg");
 assert.equal(Core.parseIntensity("VI"), 6);
 
-console.log("OK: capas, umbrales, jerarquía, PGA, conversión y parser verificados.");
+console.log("OK: capas, umbrales, jerarquía, PGA, conversión, selección por Io y parser verificados.");

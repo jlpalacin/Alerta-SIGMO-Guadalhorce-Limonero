@@ -57,7 +57,9 @@ La consola mostrará la URL del ordenador y las URLs para un móvil conectado a 
 
 El workflow actualiza `ign-terremotos.html` cada 15 minutos. El service worker no guarda ese fichero de forma persistente.
 
-Si el móvil tenía instalada una versión anterior, abre una vez la dirección de GitHub Pages añadiendo `?v=3`. La versión actual mostrará `Motor conservador v4.2` y, desde entonces, las navegaciones usarán red primero para comprobar actualizaciones.
+Si el móvil tenía instalada una versión anterior, abre una vez la dirección de GitHub Pages añadiendo `?v=5`. La versión actual mostrará `Motor conservador v4.3` y, desde entonces, las navegaciones usarán red primero para comprobar actualizaciones.
+
+La versión 4.3 selecciona inicialmente el evento con la mayor intensidad Io disponible. Desde el detalle puede generarse un informe completo del evento seleccionado y abrirse para imprimirlo o guardarlo como PDF.
 
 ## Archivos de datos
 
