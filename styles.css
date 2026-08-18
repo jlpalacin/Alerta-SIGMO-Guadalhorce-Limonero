@@ -241,14 +241,15 @@ button:disabled { cursor: wait; opacity: 0.62; }
 .vector-zone.casasola { stroke: var(--casasola); }
 .vector-zone.guadalhorce { stroke: var(--guadalhorce); }
 .event-markers { pointer-events: none; }
-.quake-marker, .selected-marker { position: absolute; transform: translate(-50%, -50%); }
-.quake-marker { width: 12px; height: 12px; border: 2px solid #fff; border-radius: 50%; background: var(--unknown); box-shadow: 0 2px 8px rgba(0,0,0,0.45); pointer-events: auto; }
+.quake-marker, .selected-marker { position: absolute; transform: translate(-50%, -50%) scale(var(--marker-inverse-scale, 1)); transform-origin: center; }
+.quake-marker { width: 8px; height: 8px; padding: 0; border: 1.5px solid #fff; border-radius: 50%; background: var(--unknown); box-shadow: 0 1px 5px rgba(0,0,0,0.45); pointer-events: auto; }
+.quake-marker::after { content: ""; position: absolute; inset: -8px; border-radius: 50%; }
 .quake-marker.ordinary { background: var(--ordinary); }
-.quake-marker.extra { width: 14px; height: 14px; background: var(--extra); }
-.quake-marker.zero { width: 16px; height: 16px; background: var(--zero); }
+.quake-marker.extra { width: 9px; height: 9px; background: var(--extra); }
+.quake-marker.zero { width: 10px; height: 10px; background: var(--zero); }
 .selected-marker { display: none; z-index: 3; pointer-events: none; }
-.selected-marker > span { display: block; width: 24px; height: 24px; border: 3px solid #fff; border-radius: 50%; background: #152c32; box-shadow: 0 0 0 3px rgba(21,44,50,0.4), 0 5px 14px rgba(0,0,0,0.35); }
-.selected-marker b { position: absolute; left: 18px; top: -21px; min-width: max-content; padding: 6px 8px; border-radius: 7px; background: rgba(16, 40, 45, 0.91); color: #fff; font-size: 0.65rem; white-space: nowrap; }
+.selected-marker > span { display: block; width: 15px; height: 15px; border: 2px solid #fff; border-radius: 50%; background: #152c32; box-shadow: 0 0 0 2px rgba(21,44,50,0.4), 0 3px 9px rgba(0,0,0,0.35); }
+.selected-marker b { position: absolute; left: 12px; top: -17px; min-width: max-content; padding: 5px 7px; border-radius: 7px; background: rgba(16, 40, 45, 0.91); color: #fff; font-size: 0.6rem; white-space: nowrap; }
 .coord-tip { position: absolute; z-index: 4; display: none; max-width: 300px; padding: 8px 10px; border-radius: 8px; background: rgba(10, 39, 43, 0.9); color: #fff; font-size: 0.67rem; line-height: 1.35; pointer-events: none; }
 .coord-tip.visible { display: block; }
 .map-legend { display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 3px 0; color: var(--muted); font-size: 0.72rem; }
@@ -273,6 +274,14 @@ button:disabled { cursor: wait; opacity: 0.62; }
 .metrics > div { min-height: 88px; padding: 14px; border: 1px solid var(--line); border-radius: 13px; background: #fafcfa; }
 .metrics span { display: block; margin-bottom: 9px; color: var(--muted); font-size: 0.68rem; }
 .metrics strong { display: block; font-size: 0.9rem; line-height: 1.35; }
+.calculation-trace { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.calculation-card { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 13px; background: #f8fbfa; }
+.calculation-number { display: grid; place-items: center; flex: none; width: 27px; height: 27px; border-radius: 50%; background: var(--teal); color: #fff; font-size: 0.72rem; font-weight: 850; }
+.calculation-card h3 { margin: 3px 0 9px; font-size: 0.86rem; }
+.calculation-card p, .calculation-card li { color: var(--muted); font-size: 0.72rem; line-height: 1.5; }
+.calculation-card p { margin: 7px 0; }
+.calculation-card ol, .calculation-card ul { margin: 0; padding-left: 18px; }
+.calculation-card code { padding: 1px 4px; border-radius: 4px; background: #e7efed; color: var(--teal-dark); font-size: 0.68rem; }
 .layer-results { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
 .layer-result { padding: 16px; border: 1px solid var(--line); border-left: 4px solid var(--status); border-radius: 13px; background: #fff; }
 .layer-result.ordinary { --status: var(--ordinary); }
@@ -286,6 +295,7 @@ button:disabled { cursor: wait; opacity: 0.62; }
 .threshold-pair span, .threshold-pair strong { display: block; }
 .threshold-pair span { color: var(--muted); font-size: 0.64rem; }
 .threshold-pair strong { margin-top: 4px; font-size: 0.86rem; }
+.decision-equation { margin: 0 0 10px; padding: 9px 10px; border-radius: 9px; background: color-mix(in srgb, var(--status) 9%, white); color: var(--ink); font-size: 0.72rem; font-weight: 750; line-height: 1.45; }
 .reason-list { margin: 0; padding-left: 18px; color: var(--muted); font-size: 0.72rem; line-height: 1.45; }
 
 .method-note { display: flex; gap: 15px; margin-top: 20px; padding: 22px 25px; border: 1px solid #e6d9b7; border-radius: 18px; background: #fff9e9; color: #68552a; }
@@ -321,6 +331,7 @@ button:disabled { cursor: wait; opacity: 0.62; }
   .map-frame { height: 470px; min-height: 0; }
   .metrics { grid-template-columns: 1fr 1fr; }
   .layer-results { grid-template-columns: 1fr; }
+  .calculation-trace { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 390px) {

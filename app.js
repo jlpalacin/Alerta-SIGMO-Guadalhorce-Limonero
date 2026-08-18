@@ -243,6 +243,7 @@ function renderDetail() {
     $("detailIntensity").textContent = "−";
     $("detailCoords").textContent = "−";
     $("detailZone").textContent = "−";
+    $("calculationTrace").innerHTML = '<p class="empty-state">Selecciona un evento para ver cómo se ha realizado el cálculo.</p>';
     $("layerResults").innerHTML = '<p class="empty-state">Selecciona un evento para ver los umbrales aplicados.</p>';
     return;
   }
@@ -252,7 +253,46 @@ function renderDetail() {
   $("detailIntensity").textContent = Core.formatThreshold(data.intensity);
   $("detailCoords").textContent = data.lat == null || data.lon == null ? "−" : `${Core.formatNumber(data.lat)}, ${Core.formatNumber(data.lon)}`;
   $("detailZone").textContent = data.zone || "−";
+  $("calculationTrace").innerHTML = calculationTraceHtml(result);
   $("layerResults").innerHTML = ["casasola", "guadalhorce"].map((layerKey) => layerResultHtml(result.layers[layerKey])).join("");
+}
+
+function calculationTraceHtml(result) {
+  const data = result.data;
+  let intensitySteps = "";
+  if (data.intensitySource === "reported") {
+    intensitySteps = `<ol>
+      <li>El boletín aporta directamente <strong>Io = ${Core.formatThreshold(data.intensity)}</strong>.</li>
+      <li>No se aplica una conversión de magnitud para obtener Io; se conserva el valor comunicado.</li>
+    </ol>`;
+  } else if (data.intensitySource === "estimated") {
+    intensitySteps = `<ol>
+      <li>Magnitud de entrada: <strong>${Core.formatThreshold(data.magnitude)} ${escapeHtml(data.magnitudeType || "")}</strong>.</li>
+      <li>Conversión a Mw: ${escapeHtml(data.magnitudeConversion || "magnitud expresada en Mw")} → <strong>Mw = ${Core.formatThreshold(data.mw)}</strong>.</li>
+      <li>Relación aplicada: <code>Io = (Mw − 1,656) / 0,545</code>.</li>
+      <li>Sustitución: <code>Io = (${Core.formatThreshold(data.mw)} − 1,656) / 0,545</code> → <strong>Io = ${Core.formatThreshold(data.intensity)}</strong>.</li>
+    </ol>`;
+  } else if (data.intensitySource === "pga") {
+    intensitySteps = `<p>No se ha obtenido Io. El estado se decide directamente con la PGA: extraordinaria desde 9,4 cm/s² y Escenario 0 desde 26,5 cm/s².</p>`;
+  } else {
+    intensitySteps = `<p>No hay datos suficientes para calcular Io; se solicita revisión manual.</p>`;
+  }
+  return `<article class="calculation-card">
+      <div class="calculation-number">1</div>
+      <div><h3>Cómo se ha obtenido la intensidad Io</h3>${intensitySteps}</div>
+    </article>
+    <article class="calculation-card">
+      <div class="calculation-number">2</div>
+      <div><h3>Cómo se obtienen las intensidades de los escenarios</h3>
+        <p>No se recalculan mediante otra fórmula. En las coordenadas del epicentro se consultan los polígonos de cada capa:</p>
+        <ul>
+          <li><code>IntensidadExtraordinaria</code>: umbral de situación extraordinaria.</li>
+          <li><code>Intensidad</code>: umbral de Escenario 0.</li>
+          <li>Si el punto pertenece a varios polígonos anidados, se adopta el <strong>menor umbral</strong> de cada campo.</li>
+        </ul>
+        <p>Finalmente se compara Io con ambos umbrales. El detalle de cada capa aparece debajo.</p>
+      </div>
+    </article>`;
 }
 
 function layerResultHtml(decision) {
@@ -261,11 +301,28 @@ function layerResultHtml(decision) {
   return `<article class="layer-result ${statusClass(decision.level)}">
     <div class="layer-result-head"><h3>${label}</h3>${statusPillInline(decision.level)}</div>
     <div class="threshold-pair">
-      <div><span>Umbral extraordinario</span><strong>${Core.formatThreshold(thresholds.extra)}</strong></div>
-      <div><span>Umbral Escenario 0</span><strong>${Core.formatThreshold(thresholds.zero)}</strong></div>
+      <div><span>Extra · IntensidadExtraordinaria</span><strong>${Core.formatThreshold(thresholds.extra)}</strong></div>
+      <div><span>Escenario 0 · Intensidad</span><strong>${Core.formatThreshold(thresholds.zero)}</strong></div>
     </div>
+    <p class="decision-equation">${decisionEquation(decision)}</p>
     <ul class="reason-list">${decision.reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}</ul>
   </article>`;
+}
+
+function decisionEquation(decision) {
+  const data = decision.data || {};
+  const thresholds = decision.thresholds || {};
+  if (data.pga != null && data.pga >= 26.5) return `PGA ${Core.formatNumber(data.pga)} ≥ 26,5 → Escenario 0.`;
+  if (data.pga != null && data.pga >= 9.4) return `PGA ${Core.formatNumber(data.pga)} ≥ 9,4 → Situación extraordinaria.`;
+  if (data.intensity == null) return "Sin Io ni PGA suficiente → revisión manual.";
+  if (thresholds.zero != null && data.intensity >= thresholds.zero) {
+    return `Io ${Core.formatNumber(data.intensity)} ≥ ${Core.formatNumber(thresholds.zero)} (Escenario 0) → Escenario 0.`;
+  }
+  if (thresholds.extra != null && data.intensity >= thresholds.extra) {
+    return `Io ${Core.formatNumber(data.intensity)} < ${Core.formatThreshold(thresholds.zero)} y ≥ ${Core.formatNumber(thresholds.extra)} → situación extraordinaria.`;
+  }
+  if (!thresholds.inCoverage) return "Epicentro fuera del ámbito cartográfico → revisión manual.";
+  return `Io ${Core.formatNumber(data.intensity)} < ${Core.formatThreshold(thresholds.extra)} → situación ordinaria.`;
 }
 
 function selectResult(result) {
@@ -418,7 +475,9 @@ function applyMapTransform() {
   const view = state.mapView;
   view.x = Math.min(0, Math.max(frame.clientWidth * (1 - view.scale), view.x));
   view.y = Math.min(0, Math.max(frame.clientHeight * (1 - view.scale), view.y));
-  $("mapLayer").style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
+  const layer = $("mapLayer");
+  layer.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
+  layer.style.setProperty("--marker-inverse-scale", String(1 / view.scale));
   renderSatelliteTiles();
 }
 

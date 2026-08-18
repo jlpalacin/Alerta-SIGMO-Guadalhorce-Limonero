@@ -40,6 +40,14 @@ assert.equal(pga.layers.guadalhorce.level, Core.LEVELS.ZERO);
 const conversion = Core.toMomentMagnitude(4.3, "mbLg");
 assert.ok(Math.abs(conversion.mw - 4.2708) < 1e-9);
 
+const calculatedIntensity = Core.evaluateEvent({ lat: 36.8068, lon: -4.4922056, magnitude: 4.3, magnitudeType: "mbLg" }, datasets);
+assert.equal(calculatedIntensity.data.intensitySource, "estimated");
+assert.equal(calculatedIntensity.data.intensityFormula, "Io = (Mw - 1,656) / 0,545");
+assert.match(calculatedIntensity.data.intensityCalculation, /Io =/);
+
+const reportedIntensity = Core.evaluateEvent({ lat: 36.8068, lon: -4.4922056, intensity: 5.7 }, datasets);
+assert.equal(reportedIntensity.data.intensitySource, "reported");
+
 const bulletin = Core.parseBulletin("Latitud: 36.8 grados norte\nLongitud: 4.5 grados oeste\nMagnitud mbLg: 4.3");
 assert.equal(bulletin.lat, 36.8);
 assert.equal(bulletin.lon, -4.5);

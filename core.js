@@ -82,16 +82,28 @@
     data.depthKm = toNumber(data.depthKm);
     data.magnitude = toNumber(data.magnitude);
     data.intensity = toNumber(data.intensity);
+    data.reportedIntensity = data.intensity;
     data.pga = toNumber(data.pga);
     const reasons = [];
+    if (data.intensity != null) {
+      data.intensitySource = "reported";
+      data.intensityCalculation = `Io ${formatNumber(data.intensity)} tomada directamente del boletin analizado.`;
+    }
     if (data.intensity == null && data.magnitude != null) {
       const conversion = toMomentMagnitude(data.magnitude, data.magnitudeType);
       data.mw = conversion?.mw ?? null;
       data.magnitudeConversion = conversion?.method ?? "";
       if (data.mw != null) {
         data.intensity = (data.mw - 1.656) / 0.545;
+        data.intensitySource = "estimated";
+        data.intensityFormula = "Io = (Mw - 1,656) / 0,545";
+        data.intensityCalculation = `Io = (${formatNumber(data.mw)} - 1,656) / 0,545 = ${formatNumber(data.intensity)}.`;
         reasons.push(`Mw ${formatNumber(data.mw)} e Io ${formatNumber(data.intensity)} calculadas desde ${data.magnitudeType || "magnitud"} ${formatNumber(data.magnitude)}.`);
       }
+    }
+    if (data.intensity == null && data.pga != null) {
+      data.intensitySource = "pga";
+      data.intensityCalculation = "No se obtuvo Io; la decision se basa directamente en la PGA comunicada.";
     }
     return { data, reasons };
   }
