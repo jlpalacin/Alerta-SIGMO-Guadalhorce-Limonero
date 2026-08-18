@@ -81,24 +81,69 @@
   function toMomentMagnitude(magnitude, type = "") {
     if (!Number.isFinite(magnitude)) return null;
     const key = normalizeMagnitudeType(type);
-    const candidates = {
-      direct: magnitude,
-      mbLg: 0.836 * magnitude + 0.676,
-      mb: 1.213 * magnitude - 1.528,
+    const direct = {
+      mw: magnitude,
+      method: "magnitud oficial ya expresada como Mw; no se aplica conversión",
+      formula: "Mw = M",
+      substitution: `Mw = ${formatNumber(magnitude)}`,
+      range: "Tipo de magnitud Mw",
+      usesRuedaQuadratic: false,
+    };
+    const mbLg = magnitude < 3 ? {
+      mw: magnitude + 0.184,
+      method: "conversión mbLg(L) → Mw, tramo inferior",
+      formula: "Mw = mbLg + 0,184",
+      substitution: `Mw = ${formatNumber(magnitude)} + 0,184 = ${formatNumber(magnitude + 0.184)}`,
+      range: "mbLg < 3",
+      usesRuedaQuadratic: false,
+    } : magnitude <= 6.8 ? {
+      mw: 0.836 * magnitude + 0.676,
+      method: "conversión mbLg(L) → Mw, tramo lineal",
+      formula: "Mw = 0,836·mbLg + 0,676",
+      substitution: `Mw = 0,836·${formatNumber(magnitude)} + 0,676 = ${formatNumber(0.836 * magnitude + 0.676)}`,
+      range: "3 ≤ mbLg ≤ 6,8",
+      usesRuedaQuadratic: false,
+    } : {
+      mw: 0.17 * magnitude ** 2 - 0.87 * magnitude + 4.416,
+      method: "conversión mbLg(L) → Mw, tramo cuadrático superior basado en Rueda (2009) y ajustado por continuidad",
+      formula: "Mw = 0,17·mbLg² − 0,87·mbLg + 4,416",
+      substitution: `Mw = 0,17·${formatNumber(magnitude)}² − 0,87·${formatNumber(magnitude)} + 4,416 = ${formatNumber(0.17 * magnitude ** 2 - 0.87 * magnitude + 4.416)}`,
+      range: "mbLg > 6,8",
+      usesRuedaQuadratic: true,
+    };
+    const mb = magnitude < 3.7 ? {
+      mw: magnitude - 0.7399,
+      method: "conversión mb → Mw, tramo inferior",
+      formula: "Mw = mb − 0,7399",
+      substitution: `Mw = ${formatNumber(magnitude)} − 0,7399 = ${formatNumber(magnitude - 0.7399)}`,
+      range: "mb < 3,7",
+      usesRuedaQuadratic: false,
+    } : magnitude <= 6.7 ? {
+      mw: 1.213 * magnitude - 1.528,
+      method: "conversión mb → Mw, tramo lineal",
+      formula: "Mw = 1,213·mb − 1,528",
+      substitution: `Mw = 1,213·${formatNumber(magnitude)} − 1,528 = ${formatNumber(1.213 * magnitude - 1.528)}`,
+      range: "3,7 ≤ mb ≤ 6,7",
+      usesRuedaQuadratic: false,
+    } : {
+      mw: 0.17 * magnitude ** 2 - 0.87 * magnitude + 4.7968,
+      method: "conversión mb → Mw, tramo cuadrático superior basado en Rueda (2009) y ajustado por continuidad",
+      formula: "Mw = 0,17·mb² − 0,87·mb + 4,7968",
+      substitution: `Mw = 0,17·${formatNumber(magnitude)}² − 0,87·${formatNumber(magnitude)} + 4,7968 = ${formatNumber(0.17 * magnitude ** 2 - 0.87 * magnitude + 4.7968)}`,
+      range: "mb > 6,7",
+      usesRuedaQuadratic: true,
     };
     if (["mw", "mww", "mwc", "mwr", "mwp", "m"].includes(key)) {
-      return { mw: candidates.direct, method: "magnitud ya expresada como Mw" };
+      return direct;
     }
     if (key.includes("mblg") || key === "mlg") {
-      return { mw: candidates.mbLg, method: "conversion mbLg -> Mw: Mw = 0,836 M + 0,676" };
+      return mbLg;
     }
-    if (key === "mb" || key.startsWith("mb")) {
-      return { mw: candidates.mb, method: "conversion mb -> Mw: Mw = 1,213 M - 1,528" };
+    if (key === "mb" || key.includes("mb")) {
+      return mb;
     }
-    return {
-      mw: Math.max(candidates.direct, candidates.mbLg, candidates.mb),
-      method: `tipo ${type || "desconocido"}; se adopta la mayor estimacion disponible`,
-    };
+    const chosen = [direct, mbLg, mb].reduce((highest, candidate) => candidate.mw > highest.mw ? candidate : highest, direct);
+    return { ...chosen, method: `tipo ${type || "desconocido"}; se adopta conservadoramente la mayor estimación: ${chosen.method}` };
   }
 
   function enrichEvent(event) {
@@ -120,6 +165,10 @@
       const conversion = toMomentMagnitude(data.magnitude, data.magnitudeType);
       data.mw = conversion?.mw ?? null;
       data.magnitudeConversion = conversion?.method ?? "";
+      data.magnitudeFormula = conversion?.formula ?? "";
+      data.magnitudeSubstitution = conversion?.substitution ?? "";
+      data.magnitudeRange = conversion?.range ?? "";
+      data.usesRuedaQuadratic = Boolean(conversion?.usesRuedaQuadratic);
       if (data.mw != null) {
         data.intensity = (data.mw - 1.656) / 0.545;
         data.intensitySource = "estimated";

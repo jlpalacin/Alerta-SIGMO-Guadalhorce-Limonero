@@ -39,6 +39,18 @@ assert.equal(pga.layers.guadalhorce.level, Core.LEVELS.ZERO);
 
 const conversion = Core.toMomentMagnitude(4.3, "mbLg");
 assert.ok(Math.abs(conversion.mw - 4.2708) < 1e-9);
+assert.equal(conversion.formula, "Mw = 0,836·mbLg + 0,676");
+assert.ok(Math.abs(Core.toMomentMagnitude(2.5, "mbLg(L)").mw - 2.684) < 1e-9);
+const highMbLg = Core.toMomentMagnitude(6.9, "mbLg");
+assert.ok(Math.abs(highMbLg.mw - (0.17 * 6.9 ** 2 - 0.87 * 6.9 + 4.416)) < 1e-9);
+assert.equal(highMbLg.usesRuedaQuadratic, true);
+assert.ok(Math.abs(Core.toMomentMagnitude(3, "mb").mw - 2.2601) < 1e-9);
+assert.ok(Math.abs(Core.toMomentMagnitude(5, "mb").mw - 4.537) < 1e-9);
+const highMb = Core.toMomentMagnitude(7, "M(mb)");
+assert.ok(Math.abs(highMb.mw - (0.17 * 7 ** 2 - 0.87 * 7 + 4.7968)) < 1e-9);
+assert.equal(highMb.usesRuedaQuadratic, true);
+assert.ok(Math.abs(Core.toMomentMagnitude(3, "mbLg").mw - Core.toMomentMagnitude(2.999999999, "mbLg").mw) < 1e-6);
+assert.ok(Math.abs(Core.toMomentMagnitude(3.7, "mb").mw - Core.toMomentMagnitude(3.699999999, "mb").mw) < 1e-6);
 
 const calculatedIntensity = Core.evaluateEvent({ lat: 36.8068, lon: -4.4922056, magnitude: 4.3, magnitudeType: "mbLg" }, datasets);
 assert.equal(calculatedIntensity.data.intensitySource, "estimated");

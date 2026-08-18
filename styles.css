@@ -252,6 +252,7 @@ button:disabled { cursor: wait; opacity: 0.62; }
 .selected-marker b { position: absolute; left: 12px; top: -17px; min-width: max-content; padding: 5px 7px; border-radius: 7px; background: rgba(16, 40, 45, 0.91); color: #fff; font-size: 0.6rem; white-space: nowrap; }
 .coord-tip { position: absolute; z-index: 4; display: none; max-width: 300px; padding: 8px 10px; border-radius: 8px; background: rgba(10, 39, 43, 0.9); color: #fff; font-size: 0.67rem; line-height: 1.35; pointer-events: none; }
 .coord-tip.visible { display: block; }
+.coord-tip.event-tip { max-width: 330px; white-space: pre-line; }
 .map-legend { display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 3px 0; color: var(--muted); font-size: 0.72rem; }
 .map-legend span { display: flex; align-items: center; gap: 7px; }
 .legend-quake { width: 10px; height: 10px; border: 2px solid #fff; border-radius: 50%; background: #152c32; box-shadow: 0 0 0 1px #728286; }
@@ -291,6 +292,10 @@ button:disabled { cursor: wait; opacity: 0.62; }
 .calculation-card p { margin: 7px 0; }
 .calculation-card ol, .calculation-card ul { margin: 0; padding-left: 18px; }
 .calculation-card code { padding: 1px 4px; border-radius: 4px; background: #e7efed; color: var(--teal-dark); font-size: 0.68rem; }
+.magnitude-rules { margin-top: 12px; padding: 11px 12px; border: 1px solid #d6e3e0; border-radius: 10px; background: #fff; }
+.magnitude-rules p { margin: 6px 0; }
+.magnitude-rules .rueda-note { padding-top: 8px; border-top: 1px solid var(--line); color: var(--ink); }
+.magnitude-rules .source, .magnitude-rules .source a { color: var(--teal); font-size: 0.64rem; }
 .layer-results { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
 .layer-result { padding: 16px; border: 1px solid var(--line); border-left: 4px solid var(--status); border-radius: 13px; background: #fff; }
 .layer-result.ordinary { --status: var(--ordinary); }

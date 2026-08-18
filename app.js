@@ -276,11 +276,13 @@ function calculationTraceHtml(result) {
   } else if (data.intensitySource === "estimated") {
     intensitySteps = `<ol>
       <li>Magnitud de entrada: <strong>${Core.formatThreshold(data.magnitude)} ${escapeHtml(data.magnitudeType || "")}</strong>.</li>
-      <li>Conversión a Mw: ${escapeHtml(data.magnitudeConversion || "magnitud expresada en Mw")} → <strong>Mw = ${Core.formatThreshold(data.mw)}</strong>.</li>
-      <li>Relación aplicada: <code>Io = (Mw − 1,656) / 0,545</code>.</li>
-      <li>Sustitución: <code>Io = (${Core.formatThreshold(data.mw)} − 1,656) / 0,545</code> → <strong>Io = ${Core.formatThreshold(data.intensity)}</strong>.</li>
+      <li>Tramo aplicado: <strong>${escapeHtml(data.magnitudeRange || "tipo de magnitud comunicado")}</strong>. ${escapeHtml(data.magnitudeConversion || "magnitud expresada en Mw")}.</li>
+      <li>Fórmula de magnitud: <code>${escapeHtml(data.magnitudeFormula || "Mw = M")}</code>.</li>
+      <li>Sustitución de magnitud: <code>${escapeHtml(data.magnitudeSubstitution || `Mw = ${Core.formatThreshold(data.mw)}`)}</code>.</li>
+      <li>Relación de intensidad: <code>Io = (Mw − 1,656) / 0,545</code>.</li>
+      <li>Sustitución de intensidad: <code>Io = (${Core.formatThreshold(data.mw)} − 1,656) / 0,545</code> → <strong>Io = ${Core.formatThreshold(data.intensity)}</strong>.</li>
       ${data.maxIntensity != null ? `<li>El IGN comunica además <strong>Imax = ${escapeHtml(data.maxIntensityText || Core.formatThreshold(data.maxIntensity))}</strong>. Se conserva como intensidad máxima observada, pero no se interpreta como Io.</li>` : ""}
-    </ol>`;
+    </ol>${magnitudeRulesHtml()}`;
   } else if (data.intensitySource === "reported-max") {
     intensitySteps = `<p>No hay magnitud suficiente para calcular Io. Se usa <strong>Imax = ${escapeHtml(data.maxIntensityText || Core.formatThreshold(data.maxIntensity))}</strong> únicamente como aproximación conservadora y queda identificada como tal.</p>`;
   } else if (data.intensitySource === "pga") {
@@ -388,7 +390,7 @@ function buildReportHtml(result) {
   const layers = ["casasola", "guadalhorce"].map((layerKey) => reportLayerHtml(result.layers[layerKey])).join("");
   const reportMaps = ["casasola", "guadalhorce"].map((layerKey) => reportMapHtml(layerKey, data)).join("");
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Informe sísmico · ${escapeHtml(data.event || "Evento")}</title><style>
-    :root{--ink:#153237;--muted:#61767a;--line:#d9e3e1;--teal:#0d736e;--ordinary:#247047;--extra:#9b5b00;--zero:#b42318;--unknown:#617079}*{box-sizing:border-box}body{margin:0;background:#eef3f2;color:var(--ink);font-family:Arial,sans-serif;line-height:1.45}.page{max-width:1100px;margin:28px auto;padding:38px;background:#fff;box-shadow:0 8px 30px #1734381c}header{display:flex;justify-content:space-between;gap:24px;padding-bottom:22px;border-bottom:3px solid var(--teal)}h1{margin:0;font-size:27px}h2{margin:28px 0 12px;font-size:17px}h3{margin:0 0 10px;font-size:15px}.meta,.subtle{color:var(--muted);font-size:11px}.meta{text-align:right}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric,.card{padding:14px;border:1px solid var(--line);border-radius:10px}.metric span{display:block;color:var(--muted);font-size:11px}.metric strong{display:block;margin-top:6px;font-size:14px}.report-maps{display:grid;grid-template-columns:1fr 1fr;gap:14px}.report-map{margin:0;padding:10px;border:1px solid var(--line);border-radius:10px;background:#f4f8f7;break-inside:avoid}.report-map svg{display:block;width:100%;height:auto;border-radius:7px;background:#b8c7c2}.report-map figcaption{padding:8px 3px 1px;font-size:11px}.calculation{padding:16px 18px;border-left:4px solid var(--teal);background:#f4f8f7}.calculation p,.calculation li{margin:6px 0;font-size:13px}.formula{padding:9px 11px;border-radius:7px;background:#e4efed;font-family:Consolas,monospace;font-size:12px}code{background:#e4efed;padding:2px 4px;border-radius:4px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{padding:9px;border:1px solid var(--line);text-align:left;vertical-align:top}th{background:#f3f7f6}.pill{display:inline-block;padding:4px 8px;border-radius:20px;font-weight:700;white-space:nowrap}.ordinary{color:var(--ordinary);background:#e8f4ec}.extra{color:var(--extra);background:#fff0c8}.zero{color:var(--zero);background:#fde9e7}.unknown{color:var(--unknown);background:#edf1f2}.layers{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card p,.card li{font-size:12px}.thresholds{display:flex;gap:18px;margin:10px 0}.thresholds span{color:var(--muted);font-size:11px}.thresholds strong{display:block;color:var(--ink);font-size:15px}.icold-layout{display:grid;grid-template-columns:1.4fr .6fr;gap:14px}.source{color:var(--muted);font-size:10px}.notice{margin-top:28px;padding:14px;background:#fff8e7;color:#66542d;font-size:11px}.toolbar{max-width:1100px;margin:20px auto 0;text-align:right}.toolbar button{padding:10px 16px;border:0;border-radius:8px;background:var(--teal);color:#fff;font-weight:700;cursor:pointer}@media(max-width:700px){.page{margin:0;padding:22px}.grid,.layers,.report-maps{grid-template-columns:1fr}.icold-layout{grid-template-columns:1fr}header{display:block}.meta{text-align:left;margin-top:10px}.distance-table{display:block;overflow-x:auto}}@media print{body{background:#fff}.toolbar{display:none}.page{max-width:none;margin:0;padding:0;box-shadow:none}thead{display:table-header-group}.card,.calculation,.report-map{break-inside:avoid}}
+    :root{--ink:#153237;--muted:#61767a;--line:#d9e3e1;--teal:#0d736e;--ordinary:#247047;--extra:#9b5b00;--zero:#b42318;--unknown:#617079}*{box-sizing:border-box}body{margin:0;background:#eef3f2;color:var(--ink);font-family:Arial,sans-serif;line-height:1.45}.page{max-width:1100px;margin:28px auto;padding:38px;background:#fff;box-shadow:0 8px 30px #1734381c}header{display:flex;justify-content:space-between;gap:24px;padding-bottom:22px;border-bottom:3px solid var(--teal)}h1{margin:0;font-size:27px}h2{margin:28px 0 12px;font-size:17px}h3{margin:0 0 10px;font-size:15px}.meta,.subtle{color:var(--muted);font-size:11px}.meta{text-align:right}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric,.card{padding:14px;border:1px solid var(--line);border-radius:10px}.metric span{display:block;color:var(--muted);font-size:11px}.metric strong{display:block;margin-top:6px;font-size:14px}.report-maps{display:grid;grid-template-columns:1fr 1fr;gap:14px}.report-map{margin:0;padding:10px;border:1px solid var(--line);border-radius:10px;background:#f4f8f7;break-inside:avoid}.report-map svg{display:block;width:100%;height:auto;border-radius:7px;background:#b8c7c2}.report-map figcaption{padding:8px 3px 1px;font-size:11px}.calculation{padding:16px 18px;border-left:4px solid var(--teal);background:#f4f8f7}.calculation p,.calculation li{margin:6px 0;font-size:13px}.magnitude-rules{margin-top:12px;padding:11px;border:1px solid var(--line);border-radius:8px;background:#fff}.magnitude-rules .rueda-note{padding-top:8px;border-top:1px solid var(--line)}.magnitude-rules a{color:var(--teal)}.formula{padding:9px 11px;border-radius:7px;background:#e4efed;font-family:Consolas,monospace;font-size:12px}code{background:#e4efed;padding:2px 4px;border-radius:4px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{padding:9px;border:1px solid var(--line);text-align:left;vertical-align:top}th{background:#f3f7f6}.pill{display:inline-block;padding:4px 8px;border-radius:20px;font-weight:700;white-space:nowrap}.ordinary{color:var(--ordinary);background:#e8f4ec}.extra{color:var(--extra);background:#fff0c8}.zero{color:var(--zero);background:#fde9e7}.unknown{color:var(--unknown);background:#edf1f2}.layers{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card p,.card li{font-size:12px}.thresholds{display:flex;gap:18px;margin:10px 0}.thresholds span{color:var(--muted);font-size:11px}.thresholds strong{display:block;color:var(--ink);font-size:15px}.icold-layout{display:grid;grid-template-columns:1.4fr .6fr;gap:14px}.source{color:var(--muted);font-size:10px}.notice{margin-top:28px;padding:14px;background:#fff8e7;color:#66542d;font-size:11px}.toolbar{max-width:1100px;margin:20px auto 0;text-align:right}.toolbar button{padding:10px 16px;border:0;border-radius:8px;background:var(--teal);color:#fff;font-weight:700;cursor:pointer}@media(max-width:700px){.page{margin:0;padding:22px}.grid,.layers,.report-maps{grid-template-columns:1fr}.icold-layout{grid-template-columns:1fr}header{display:block}.meta{text-align:left;margin-top:10px}.distance-table{display:block;overflow-x:auto}}@media print{body{background:#fff}.toolbar{display:none}.page{max-width:none;margin:0;padding:0;box-shadow:none}thead{display:table-header-group}.card,.calculation,.report-map{break-inside:avoid}}
   </style></head><body><div class="toolbar"><button type="button" onclick="window.print()">Imprimir / Guardar como PDF</button></div><main class="page">
     <header><div><p style="margin:0;color:var(--teal);font-size:12px;font-weight:700">SEGURIDAD DE PRESAS · DHCMA</p><h1>Informe de evaluación sísmica</h1></div><div class="meta">Generado el ${escapeHtml(generated)}<br>Aplicación Alerta sísmica por embalse</div></header>
     <h2>Evento seleccionado</h2><div class="grid">
@@ -414,10 +416,14 @@ function buildReportHtml(result) {
 
 function reportCalculationHtml(data) {
   if (data.intensitySource === "reported") return `<p>La intensidad <strong>Io = ${Core.formatThreshold(data.intensity)}</strong> se tomó directamente del boletín. No se aplicó conversión de magnitud.</p>`;
-  if (data.intensitySource === "estimated") return `<p>Magnitud de entrada: <strong>${Core.formatThreshold(data.magnitude)} ${escapeHtml(data.magnitudeType || "")}</strong>.</p><p>${escapeHtml(data.magnitudeConversion || "Conversión a Mw")}.</p><p>Relación: <code>Io = (Mw − 1,656) / 0,545</code>.</p><p>Sustitución: <code>Io = (${Core.formatThreshold(data.mw)} − 1,656) / 0,545</code> → <strong>Io = ${Core.formatThreshold(data.intensity)}</strong>.</p>${data.maxIntensity != null ? `<p>El IGN comunica por separado <strong>Imax = ${escapeHtml(data.maxIntensityText || Core.formatThreshold(data.maxIntensity))}</strong>. Es la intensidad máxima observada y no se ha usado como si fuera Io.</p>` : ""}`;
+  if (data.intensitySource === "estimated") return `<p>Magnitud de entrada: <strong>${Core.formatThreshold(data.magnitude)} ${escapeHtml(data.magnitudeType || "")}</strong>.</p><ol><li>Tramo aplicado: <strong>${escapeHtml(data.magnitudeRange || "tipo comunicado")}</strong>.</li><li>Método: ${escapeHtml(data.magnitudeConversion || "magnitud ya expresada como Mw")}.</li><li>Fórmula: <code>${escapeHtml(data.magnitudeFormula || "Mw = M")}</code>.</li><li>Sustitución: <code>${escapeHtml(data.magnitudeSubstitution || `Mw = ${Core.formatThreshold(data.mw)}`)}</code>.</li><li>Intensidad: <code>Io = (Mw − 1,656) / 0,545</code>.</li><li>Sustitución: <code>Io = (${Core.formatThreshold(data.mw)} − 1,656) / 0,545</code> → <strong>Io = ${Core.formatThreshold(data.intensity)}</strong>.</li></ol>${data.maxIntensity != null ? `<p>El IGN comunica por separado <strong>Imax = ${escapeHtml(data.maxIntensityText || Core.formatThreshold(data.maxIntensity))}</strong>. Es la intensidad máxima observada y no se ha usado como si fuera Io.</p>` : ""}${magnitudeRulesHtml()}`;
   if (data.intensitySource === "reported-max") return `<p>No hay magnitud suficiente para aplicar la relación de Io. Se usa <strong>Imax = ${escapeHtml(data.maxIntensityText || Core.formatThreshold(data.maxIntensity))}</strong> como aproximación conservadora, dejando constancia de que no es una Io calculada.</p>`;
   if (data.intensitySource === "pga") return `<p>No se obtuvo Io. La evaluación se realizó con la PGA comunicada: <strong>${Core.formatThreshold(data.pga)} cm/s²</strong>.</p>`;
   return "<p>No hay datos suficientes para calcular Io; se requiere revisión manual.</p>";
+}
+
+function magnitudeRulesHtml() {
+  return `<div class="magnitude-rules"><p><strong>Relaciones por tramos utilizadas</strong></p><p><strong>mbLg(L):</strong> <code>Mw = mbLg + 0,184</code> si <code>mbLg &lt; 3</code>; <code>Mw = 0,836·mbLg + 0,676</code> si <code>3 ≤ mbLg ≤ 6,8</code>; <code>Mw = 0,17·mbLg² − 0,87·mbLg + 4,416</code> si <code>mbLg &gt; 6,8</code>.</p><p><strong>mb:</strong> <code>Mw = mb − 0,7399</code> si <code>mb &lt; 3,7</code>; <code>Mw = 1,213·mb − 1,528</code> si <code>3,7 ≤ mb ≤ 6,7</code>; <code>Mw = 0,17·mb² − 0,87·mb + 4,7968</code> si <code>mb &gt; 6,7</code>.</p><p class="rueda-note">Para valores superiores, cuando no esté disponible el Mw oficial, se utiliza el tramo cuadrático basado en la relación de Rueda (2009). El IGN recoge la forma cuadrática como aplicable a mbLg(L), que aumenta más rápidamente para magnitudes grandes. Las constantes finales de estas expresiones están ajustadas para que no exista salto entre los tramos.</p><p class="source"><a href="https://www.ign.es/resources/acercaDe/libDigPub/ActualizacionMapasPeligrosidadSismica2012.pdf" target="_blank" rel="noreferrer">Referencia IGN: Actualización de mapas de peligrosidad sísmica en España (2012)</a>.</p></div>`;
 }
 
 function reportLayerHtml(decision) {
@@ -518,7 +524,19 @@ function renderMapMarkers() {
     marker.className = `quake-marker ${statusClass(worst.level)}`;
     marker.style.left = `${(point.x / MAP.width) * 100}%`;
     marker.style.top = `${(point.y / MAP.height) * 100}%`;
-    marker.title = `${result.data.event || "Evento"}: ${Core.statusLabel(worst.level)}`;
+    const tooltipText = eventMarkerTooltip(result);
+    marker.title = tooltipText.replace(/\n/g, " | ");
+    marker.setAttribute("aria-label", marker.title);
+    const showEventTip = (event) => {
+      event.stopPropagation();
+      const tip = $("coordTip");
+      tip.textContent = tooltipText;
+      tip.classList.add("visible", "event-tip");
+      positionMapTip(event, tip, 330, 122);
+    };
+    marker.addEventListener("pointerenter", showEventTip);
+    marker.addEventListener("pointermove", showEventTip);
+    marker.addEventListener("pointerleave", () => $("coordTip").classList.remove("visible", "event-tip"));
     marker.addEventListener("click", () => selectResult(state.results[index]));
     container.appendChild(marker);
   }
@@ -536,6 +554,12 @@ function renderMapMarkers() {
   selectedMarker.style.left = `${(point.x / MAP.width) * 100}%`;
   selectedMarker.style.top = `${(point.y / MAP.height) * 100}%`;
   $("selectedMarkerLabel").textContent = `${state.selected.data.event || "Evento"} · Io ${Core.formatThreshold(state.selected.data.intensity)}`;
+}
+
+function eventMarkerTooltip(result) {
+  const casasola = result.layers?.casasola?.thresholds || {};
+  const guadalhorce = result.layers?.guadalhorce?.thresholds || {};
+  return `${result.data.event || "Evento"} · Io calculada ${Core.formatThreshold(result.data.intensity)}\nCasasola: I extraordinaria ${Core.formatThreshold(casasola.extra)} · I Escenario 0 ${Core.formatThreshold(casasola.zero)}\nSistema Guadalhorce: I extraordinaria ${Core.formatThreshold(guadalhorce.extra)} · I Escenario 0 ${Core.formatThreshold(guadalhorce.zero)}`;
 }
 
 function initLayerSwitch() {
@@ -617,6 +641,7 @@ function updateCoordinateTip(event) {
   const px = ((event.clientX - rect.left - view.x) / view.scale) * (MAP.width / frame.clientWidth);
   const py = ((event.clientY - rect.top - view.y) / view.scale) * (MAP.height / frame.clientHeight);
   const tip = $("coordTip");
+  tip.classList.remove("event-tip");
   if (!isPixelInMap({ x: px, y: py })) {
     tip.classList.remove("visible");
     return;
@@ -624,9 +649,15 @@ function updateCoordinateTip(event) {
   const geo = pixelToLatLon(px, py);
   const thresholds = Core.readThresholds(state.activeLayer, geo.lat, geo.lon, DATASETS);
   tip.textContent = `Lat ${geo.lat.toFixed(4)} · Lon ${geo.lon.toFixed(4)} · Extra ${Core.formatThreshold(thresholds.extra)} · E0 ${Core.formatThreshold(thresholds.zero)}`;
-  tip.style.left = `${Math.min(frame.clientWidth - 280, Math.max(8, event.clientX - rect.left + 18))}px`;
-  tip.style.top = `${Math.min(frame.clientHeight - 58, Math.max(8, event.clientY - rect.top + 18))}px`;
+  positionMapTip(event, tip, 280, 58);
   tip.classList.add("visible");
+}
+
+function positionMapTip(event, tip, width, height) {
+  const frame = $("mapFrame");
+  const rect = frame.getBoundingClientRect();
+  tip.style.left = `${Math.min(frame.clientWidth - width, Math.max(8, event.clientX - rect.left + 18))}px`;
+  tip.style.top = `${Math.min(frame.clientHeight - height, Math.max(8, event.clientY - rect.top + 18))}px`;
 }
 
 function renderSatelliteTiles() {
