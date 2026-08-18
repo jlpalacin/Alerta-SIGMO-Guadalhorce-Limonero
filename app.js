@@ -373,17 +373,22 @@ function buildReportHtml(result) {
   const data = result.data;
   const depthKm = data.depthKm ?? data.depth;
   const generated = new Intl.DateTimeFormat("es-ES", { dateStyle: "long", timeStyle: "short" }).format(new Date());
-  const actionRadiusKm = Core.icoldActionRadiusKm(data.magnitude);
+  const icoldMagnitude = data.mw ?? data.magnitude;
+  const icoldMagnitudeLabel = data.mw != null
+    ? `${Core.formatThreshold(data.mw)} Mw`
+    : `${Core.formatThreshold(data.magnitude)} ${escapeHtml(data.magnitudeType || "")}`.trim();
+  const actionRadiusKm = Core.icoldActionRadiusKm(icoldMagnitude);
   const distances = reservoirDistances(data);
   const assetRows = distances.map(({ asset, distanceKm }) => {
     const decision = result.layers[asset.layer];
     const actionCheck = distanceKm == null
-      ? "Distancia no calculable"
+      ? "No evaluable: distancia no calculable"
       : actionRadiusKm == null
-        ? "Radio no definido en la tabla (M ≤ 4 o sin magnitud)"
-        : distanceKm <= actionRadiusKm ? `Dentro (≤ ${formatDistance(actionRadiusKm)})` : `Fuera (> ${formatDistance(actionRadiusKm)})`;
-    const extraordinary50 = distanceKm == null ? "No calculable" : distanceKm > 50 ? "No, distancia > 50 km" : "Dentro del límite de 50 km";
-    return `<tr><td><strong>${escapeHtml(asset.label)}</strong><br><span class="subtle">MITECO ${asset.mitecoCode}</span></td><td>${formatDistance(distanceKm)}</td><td>${escapeHtml(actionCheck)}</td><td>${escapeHtml(extraordinary50)}</td><td><span class="pill ${statusClass(decision.level)}">${escapeHtml(Core.statusLabel(decision.level))}</span></td><td>${escapeHtml(decisionEquation(decision))}</td></tr>`;
+        ? "No evaluable: la tabla comienza en M > 4"
+        : distanceKm <= actionRadiusKm
+          ? `Sí: d ≤ ${formatDistance(actionRadiusKm)}`
+          : `No: d > ${formatDistance(actionRadiusKm)}`;
+    return `<tr><td><strong>${escapeHtml(asset.label)}</strong><br><span class="subtle">MITECO ${asset.mitecoCode}</span></td><td>${formatDistance(distanceKm)}</td><td>${escapeHtml(actionCheck)}</td><td><span class="pill ${statusClass(decision.level)}">${escapeHtml(Core.statusLabel(decision.level))}</span></td><td>${escapeHtml(decisionEquation(decision))}</td></tr>`;
   }).join("");
   const distanceDetails = distances.map(({ asset, distanceKm }) => `<li><strong>${escapeHtml(asset.label)}:</strong> φ₂ = ${Core.formatNumber(asset.lat)}°, λ₂ = ${Core.formatNumber(asset.lon)}° → <strong>d = ${formatDistance(distanceKm)}</strong>.</li>`).join("");
   const icoldRows = [...Core.ICOLD_ACTION_RADII].reverse().map((row) => `<tr><td>&gt; ${Core.formatNumber(row.magnitudeAbove)}</td><td>${formatDistance(row.distanceKm)}</td></tr>`).join("");
@@ -407,8 +412,8 @@ function buildReportHtml(result) {
     <h2>Mapas del evento</h2><div class="report-maps">${reportMaps}</div>
     <h2>Cálculo de Io</h2><div class="calculation">${reportCalculationHtml(data)}</div>
     <h2>Cálculo de la distancia epicentral</h2><div class="calculation"><p>Se aplica la fórmula de Haversine sobre una esfera de radio medio <strong>R = ${Core.formatNumber(Core.EARTH_RADIUS_KM)} km</strong>.</p><p class="formula">Δφ = φ₂ − φ₁; Δλ = λ₂ − λ₁<br>a = sen²(Δφ/2) + cos(φ₁) · cos(φ₂) · sen²(Δλ/2)<br>d = 2R · atan2(√a, √(1−a))</p><p>Epicentro: φ₁ = ${Core.formatThreshold(data.lat)}°, λ₁ = ${Core.formatThreshold(data.lon)}°.</p><ul>${distanceDetails}</ul><p class="source">Coordenadas de presa: Inventario de Presas y Embalses de MITECO (códigos indicados en la tabla).</p></div>
-    <h2>Estado, distancia y comprobación por embalse</h2><div class="distance-table"><table><thead><tr><th>Embalse</th><th>Distancia epicentral</th><th>Radio de acción ICOLD por magnitud</th><th>Nota de 50 km</th><th>Estado por capas</th><th>Comparación de intensidad</th></tr></thead><tbody>${assetRows}</tbody></table></div>
-    <h2>Criterio de distancias ICOLD (2016)</h2><div class="icold-layout"><div class="calculation"><p>Para este criterio se emplea la magnitud de entrada del boletín (<strong>${Core.formatThreshold(data.magnitude)} ${escapeHtml(data.magnitudeType || "")}</strong>). El radio de acción obtenido de la tabla es <strong>${formatDistance(actionRadiusKm)}</strong>.</p><p>Conforme a la información aportada, <strong>no se consideraría una situación extraordinaria por sismo en presas situadas a más de 50 km del epicentro</strong>.</p><p>Esta comprobación de distancia se muestra de forma complementaria y no modifica automáticamente el estado calculado mediante las capas de intensidad.</p></div><table><thead><tr><th>Magnitud</th><th>Distancia</th></tr></thead><tbody>${icoldRows}</tbody></table></div>
+    <h2>Estado, distancia y comprobación por embalse</h2><div class="distance-table"><table><thead><tr><th>Embalse</th><th>Distancia epicentral</th><th>Cumple el radio de acción ICOLD</th><th>Estado por capas</th><th>Comparación de intensidad</th></tr></thead><tbody>${assetRows}</tbody></table></div>
+    <h2>Radios de acción ICOLD (2016)</h2><div class="icold-layout"><div class="calculation"><p>La tabla relaciona la magnitud del terremoto con el radio epicentral que justificaría considerar una situación extraordinaria en una gran presa.</p><p>Se utiliza <strong>${icoldMagnitudeLabel}</strong>${data.mw != null && data.magnitudeType && !/^mw$/i.test(data.magnitudeType) ? ", obtenido mediante la conversión a Mw detallada anteriormente" : ""}. El radio aplicable es <strong>${formatDistance(actionRadiusKm)}</strong> y cada distancia presa–epicentro se compara directamente con él.</p><p>Si <code>d ≤ radio ICOLD</code>, la presa cumple el criterio de distancia de la tabla; si <code>d &gt; radio ICOLD</code>, no lo cumple. Esta es la única comprobación de distancia aplicada.</p><p>Esta comprobación se presenta junto al estado obtenido mediante las capas de intensidad y no altera por sí sola ese cálculo.</p></div><table><thead><tr><th>Magnitud</th><th>Radio de acción</th></tr></thead><tbody>${icoldRows}</tbody></table></div>
     <h2>Detalle de los escenarios de intensidad</h2><div class="layers">${layers}</div>
     <div class="notice"><strong>Nota:</strong> resultado orientativo. La regla ICOLD se presenta como comprobación complementaria. El informe no sustituye el Plan de Emergencia de Presa ni la valoración técnica de los organismos competentes.</div>
   </main></body></html>`;
@@ -521,12 +526,14 @@ function renderMapMarkers() {
     const marker = document.createElement("button");
     const worst = Core.worstDecision(Object.values(result.layers));
     marker.type = "button";
-    marker.className = `quake-marker ${statusClass(worst.level)}`;
+    const isSelected = result === state.selected;
+    marker.className = `quake-marker ${statusClass(worst.level)}${isSelected ? " selected" : ""}`;
     marker.style.left = `${(point.x / MAP.width) * 100}%`;
     marker.style.top = `${(point.y / MAP.height) * 100}%`;
     const tooltipText = eventMarkerTooltip(result);
     marker.title = tooltipText.replace(/\n/g, " | ");
     marker.setAttribute("aria-label", marker.title);
+    marker.setAttribute("aria-pressed", String(isSelected));
     const showEventTip = (event) => {
       event.stopPropagation();
       const tip = $("coordTip");
@@ -537,7 +544,11 @@ function renderMapMarkers() {
     marker.addEventListener("pointerenter", showEventTip);
     marker.addEventListener("pointermove", showEventTip);
     marker.addEventListener("pointerleave", () => $("coordTip").classList.remove("visible", "event-tip"));
-    marker.addEventListener("click", () => selectResult(state.results[index]));
+    marker.addEventListener("pointerdown", (event) => event.stopPropagation());
+    marker.addEventListener("click", (event) => {
+      event.stopPropagation();
+      selectResult(state.results[index]);
+    });
     container.appendChild(marker);
   }
   const selectedMarker = $("selectedMarker");

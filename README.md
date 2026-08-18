@@ -57,15 +57,17 @@ La consola mostrará la URL del ordenador y las URLs para un móvil conectado a 
 
 El workflow actualiza `ign-terremotos.html` cada 15 minutos. El service worker no guarda ese fichero de forma persistente.
 
-Si el móvil tenía instalada una versión anterior, abre una vez la dirección de GitHub Pages añadiendo `?v=9`. La versión actual mostrará `Motor conservador v4.6` y, desde entonces, las navegaciones usarán red primero para comprobar actualizaciones.
+Si el móvil tenía instalada una versión anterior, abre una vez la dirección de GitHub Pages añadiendo `?v=10`. La versión actual mostrará `Motor conservador v4.7` y, desde entonces, las navegaciones usarán red primero para comprobar actualizaciones.
 
 La versión 4.3 selecciona inicialmente el evento con la mayor intensidad Io disponible. Desde el detalle puede generarse un informe completo del evento seleccionado y abrirse para imprimirlo o guardarlo como PDF.
 
-La versión 4.4 mantiene constante en pantalla el grosor de las isoyetas al ampliar el mapa. El informe desarrolla los cálculos de Io, los umbrales de los escenarios y la distancia epicentral Haversine a cada presa. También incorpora como comprobación complementaria la tabla ICOLD (2016): magnitud >4, >5, >6, >7 y >8 con radios de 25, 50, 80, 125 y 200 km, respectivamente, y la nota de exclusión de situación extraordinaria más allá de 50 km facilitada por el usuario.
+La versión 4.4 mantiene constante en pantalla el grosor de las isoyetas al ampliar el mapa. El informe desarrolla los cálculos de Io, los umbrales de los escenarios y la distancia epicentral Haversine a cada presa. También incorpora como comprobación complementaria la tabla ICOLD (2016): magnitud >4, >5, >6, >7 y >8 con radios de 25, 50, 80, 125 y 200 km, respectivamente.
 
 La versión 4.5 separa correctamente la intensidad máxima observada (`Imax`) de la intensidad epicentral calculada (`Io`). Cuando el IGN informa una magnitud `Mw`, se usa directamente como Mw y se aplica `Io = (Mw − 1,656) / 0,545`; `Imax` queda como dato independiente. El informe incorpora además los mapas de Casasola y del Sistema Guadalhorce con el epicentro señalado.
 
 La versión 4.6 aplica las relaciones por tramos facilitadas para convertir `mbLg(L)` y `mb` a `Mw`, mostrando en la web y en el informe el tramo, la fórmula y la sustitución numérica. Para magnitudes altas sin `Mw` oficial se emplea el tramo cuadrático basado en Rueda (2009), con las constantes ajustadas por continuidad indicadas en dichas relaciones. Al situar el ratón sobre un evento del mapa se muestran su `Io` calculada y las intensidades extraordinaria y de Escenario 0 de ambas capas.
+
+La versión 4.7 elimina la consideración fija de 50 km y utiliza exclusivamente los radios de acción ICOLD dependientes de la magnitud. Los epicentros del mapa son botones seleccionables; al pulsarlos se actualizan el evento activo, su detalle y el informe que se genere.
 
 ## Archivos de datos
 

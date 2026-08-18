@@ -247,6 +247,7 @@ button:disabled { cursor: wait; opacity: 0.62; }
 .quake-marker.ordinary { background: var(--ordinary); }
 .quake-marker.extra { width: 9px; height: 9px; background: var(--extra); }
 .quake-marker.zero { width: 10px; height: 10px; background: var(--zero); }
+.quake-marker.selected { outline: 3px solid rgba(21, 44, 50, 0.7); outline-offset: 3px; }
 .selected-marker { display: none; z-index: 3; pointer-events: none; }
 .selected-marker > span { display: block; width: 15px; height: 15px; border: 2px solid #fff; border-radius: 50%; background: #152c32; box-shadow: 0 0 0 2px rgba(21,44,50,0.4), 0 3px 9px rgba(0,0,0,0.35); }
 .selected-marker b { position: absolute; left: 12px; top: -17px; min-width: max-content; padding: 5px 7px; border-radius: 7px; background: rgba(16, 40, 45, 0.91); color: #fff; font-size: 0.6rem; white-space: nowrap; }
@@ -255,6 +256,7 @@ button:disabled { cursor: wait; opacity: 0.62; }
 .coord-tip.event-tip { max-width: 330px; white-space: pre-line; }
 .map-legend { display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 3px 0; color: var(--muted); font-size: 0.72rem; }
 .map-legend span { display: flex; align-items: center; gap: 7px; }
+.map-legend .map-select-help { color: var(--teal); font-weight: 750; }
 .legend-quake { width: 10px; height: 10px; border: 2px solid #fff; border-radius: 50%; background: #152c32; box-shadow: 0 0 0 1px #728286; }
 .legend-line { width: 20px; border-top: 3px solid; }
 
