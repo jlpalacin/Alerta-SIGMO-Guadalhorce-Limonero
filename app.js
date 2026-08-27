@@ -76,7 +76,7 @@ async function loadRasterData() {
   const rasterTasks = LAYER_KEYS.flatMap((layerKey) => ["extra", "zero"].map(async (scenario) => {
     const raster = DATASETS?.[layerKey]?.[scenario];
     if (!raster) throw new Error(`falta la capa ${layerKey}/${scenario}`);
-    const response = await fetch(raster.dataUrl);
+    const response = await fetchDataResource(raster.dataUrl);
     if (!response.ok) throw new Error(`${raster.sourceFile}: HTTP ${response.status}`);
     const payload = await response.arrayBuffer();
     const signature = new Uint8Array(payload, 0, Math.min(2, payload.byteLength));
@@ -93,11 +93,19 @@ async function loadRasterData() {
   const isolineTasks = LAYER_KEYS.map(async (layerKey) => {
     const config = window.RESERVOIR_ISOLINE_DATA?.[layerKey];
     if (!config) throw new Error(`faltan las isolíneas ${layerKey}`);
-    const response = await fetch(config.dataUrl);
+    const response = await fetchDataResource(config.dataUrl);
     if (!response.ok) throw new Error(`${config.sourceFile}: HTTP ${response.status}`);
     ISOLINES[layerKey] = await response.json();
   });
   await Promise.all([...rasterTasks, ...isolineTasks]);
+}
+
+async function fetchDataResource(dataUrl) {
+  let response = await fetch(dataUrl);
+  if (response.status === 404 && dataUrl.includes("/")) {
+    response = await fetch(dataUrl.split("/").pop());
+  }
+  return response;
 }
 
 function setRasterControlsReady(ready) {
