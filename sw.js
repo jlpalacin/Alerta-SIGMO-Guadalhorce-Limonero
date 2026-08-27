@@ -1,11 +1,11 @@
-const CACHE_NAME = "alerta-embalses-v15";
+const CACHE_NAME = "alerta-embalses-v16";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=15",
-  "./raster-intensity-data.js?v=15",
-  "./core.js?v=15",
-  "./app.js?v=15",
+  "./styles.css?v=16",
+  "./raster-intensity-data.js?v=16",
+  "./core.js?v=16",
+  "./app.js?v=16",
   "./assets/map-base.jpg",
   "./manifest.webmanifest",
   "./icon.svg",

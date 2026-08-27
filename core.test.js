@@ -17,8 +17,14 @@ for (const layer of Object.values(datasets)) {
     const raw = zlib.gunzipSync(compressed);
     const bytes = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength);
     raster.values = new Float32Array(bytes);
+    if (scenario === "extra") {
+      const reportImage = fs.readFileSync(path.resolve(__dirname, "..", raster.reportImageUrl));
+      assert.equal(crypto.createHash("sha256").update(reportImage).digest("hex"), raster.reportImageSha256);
+    }
   }
 }
+
+assert.equal(new Set(Object.values(datasets).map((layer) => layer.extra.reportImageUrl)).size, 3);
 
 assert.equal(datasets.casasola.zero.width, 890);
 assert.equal(datasets.guadalhorce.extra.height, 1242);

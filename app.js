@@ -101,7 +101,18 @@ async function loadRasterData() {
     if (!response.ok) throw new Error(`${config.sourceFile}: HTTP ${response.status}`);
     ISOLINES[layerKey] = await response.json();
   });
-  await Promise.all([...rasterTasks, ...isolineTasks]);
+  const reportImageTasks = LAYER_KEYS.map(async (layerKey) => {
+    const raster = DATASETS?.[layerKey]?.extra;
+    if (!raster?.reportImageUrl) return;
+    try {
+      const response = await fetchDataResource(raster.reportImageUrl);
+      if (!response.ok) return;
+      raster.reportImageDataUrl = await blobToDataUrl(await response.blob());
+    } catch {
+      raster.reportImageDataUrl = "";
+    }
+  });
+  await Promise.all([...rasterTasks, ...isolineTasks, ...reportImageTasks]);
 }
 
 async function fetchDataResource(dataUrl) {
@@ -110,6 +121,15 @@ async function fetchDataResource(dataUrl) {
     response = await fetch(dataUrl.split("/").pop());
   }
   return response;
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(reader.result));
+    reader.addEventListener("error", () => reject(reader.error));
+    reader.readAsDataURL(blob);
+  });
 }
 
 function setRasterControlsReady(ready) {
@@ -538,7 +558,7 @@ function reportMapHtml(layerKey, data) {
   const label = layerLabel(layerKey);
   const stroke = layerColor(layerKey);
   const raster = DATASETS?.[layerKey]?.extra;
-  const rasterDataUrl = reportExtraRasterDataUrl(layerKey);
+  const rasterDataUrl = raster?.reportImageDataUrl || reportExtraRasterDataUrl(layerKey);
   const rasterOverlay = rasterDataUrl
     ? `<image href="${escapeHtml(rasterDataUrl)}" x="0" y="0" width="${MAP.width}" height="${MAP.height}" preserveAspectRatio="none"/>`
     : "";
@@ -550,14 +570,14 @@ function reportMapHtml(layerKey, data) {
   }).join("");
   const point = data.lat == null || data.lon == null ? null : latLonToPixel(data.lat, data.lon);
   const marker = point && point.x >= 0 && point.x <= MAP.width && point.y >= 0 && point.y <= MAP.height
-    ? `<circle cx="${point.x}" cy="${point.y}" r="13" fill="#152c32" stroke="#fff" stroke-width="5"><title>${escapeHtml(data.event || "Evento")} · Io ${Core.formatThreshold(data.intensity)}</title></circle>`
+    ? `<g><circle cx="${point.x}" cy="${point.y}" r="25" fill="#fff" stroke="#152c32" stroke-width="8"/><circle cx="${point.x}" cy="${point.y}" r="8" fill="#b42318"/><title>${escapeHtml(data.event || "Evento")} · Io ${Core.formatThreshold(data.intensity)}</title></g>`
     : "";
   const mapBaseUrl = new URL("assets/map-base.jpg", location.href).href;
   const orthophotoUrl = pnoaReportUrl();
   const legend = raster
     ? `<div class="raster-legend"><span>I extraordinaria alta · ${Core.formatThreshold(raster.maximum)}</span><i></i><span>${Core.formatThreshold(raster.minimum)} · I extraordinaria baja</span></div><small class="raster-note">Rojo más oscuro: menor intensidad epicentral necesaria para alcanzar la situación extraordinaria.</small>`
     : "";
-  return `<figure class="report-map"><svg viewBox="0 0 ${MAP.width} ${MAP.height}" role="img" aria-label="Ortofoto PNOA, intensidad extraordinaria, isolíneas de ${escapeHtml(label)} y epicentro"><image href="${escapeHtml(mapBaseUrl)}" x="0" y="0" width="${MAP.width}" height="${MAP.height}" preserveAspectRatio="none"/><image href="${escapeHtml(orthophotoUrl)}" x="0" y="0" width="${MAP.width}" height="${MAP.height}" preserveAspectRatio="none" opacity="0.9"/>${rasterOverlay}${paths}${marker}</svg>${legend}<figcaption><strong>${escapeHtml(label)}</strong> · ${escapeHtml(data.event || "Evento")} · Io ${Core.formatThreshold(data.intensity)}. El sombreado rojo representa la Banda 1 del escenario extraordinario; las isolíneas y el epicentro son información visual. Los cálculos siguen usando exclusivamente el valor de la celda del GeoTIFF. Base: <a href="https://pnoa.ign.es/pnoa-imagen/ortofotos-pnoa-maxima-actualidad" target="_blank" rel="noreferrer">Ortofoto PNOA máxima actualidad, IGN-CNIG</a>.</figcaption></figure>`;
+  return `<figure class="report-map"><svg viewBox="0 0 ${MAP.width} ${MAP.height}" role="img" aria-label="Ortofoto PNOA, intensidad extraordinaria, isolíneas de ${escapeHtml(label)} y epicentro"><image href="${escapeHtml(mapBaseUrl)}" x="0" y="0" width="${MAP.width}" height="${MAP.height}" preserveAspectRatio="none"/><image href="${escapeHtml(orthophotoUrl)}" x="0" y="0" width="${MAP.width}" height="${MAP.height}" preserveAspectRatio="none" opacity="0.9"/>${rasterOverlay}${paths}${marker}</svg>${legend}<figcaption><strong>${escapeHtml(label)}</strong> · ${escapeHtml(data.event || "Evento")} · Io ${Core.formatThreshold(data.intensity)}. <strong>TIF extraordinario:</strong> ${escapeHtml(raster?.sourceFile || "no disponible")}. El sombreado rojo representa su Banda 1; las isolíneas y el epicentro son información visual. Los cálculos siguen usando exclusivamente el valor de la celda del GeoTIFF. Base: <a href="https://pnoa.ign.es/pnoa-imagen/ortofotos-pnoa-maxima-actualidad" target="_blank" rel="noreferrer">Ortofoto PNOA máxima actualidad, IGN-CNIG</a>.</figcaption></figure>`;
 }
 
 function reportExtraRasterDataUrl(layerKey) {

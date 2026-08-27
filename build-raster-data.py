@@ -32,6 +32,10 @@ ISOLINES = {
     "limonero": "LIMONERO/EXTRAORDINARIO/Isolineas Limonero.geojson",
 }
 
+REPORT_BOUNDS = (-15, 31, 1, 42)
+REPORT_WIDTH = 1600
+REPORT_HEIGHT = 1100
+
 
 def sha256(path):
     digest = hashlib.sha256()
@@ -92,6 +96,46 @@ def export_isolines(source_path, output_path):
     }
 
 
+def export_report_overlay(source_path, output_path, color_ramp_path):
+    dataset = gdal.Open(str(source_path), gdal.GA_ReadOnly)
+    if dataset is None:
+        raise RuntimeError(f"No se pudo abrir {source_path}")
+    nodata = dataset.GetRasterBand(1).GetNoDataValue()
+    warped = gdal.Warp(
+        "",
+        dataset,
+        format="MEM",
+        dstSRS="EPSG:4326",
+        outputBounds=REPORT_BOUNDS,
+        width=REPORT_WIDTH,
+        height=REPORT_HEIGHT,
+        resampleAlg="bilinear",
+        srcNodata=nodata,
+        dstNodata=nodata,
+    )
+    if warped is None:
+        raise RuntimeError(f"No se pudo reproyectar {source_path}")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    options = gdal.DEMProcessingOptions(
+        colorFilename=str(color_ramp_path),
+        format="PNG",
+        addAlpha=True,
+    )
+    result = gdal.DEMProcessing(str(output_path), warped, "color-relief", options=options)
+    if result is None:
+        raise RuntimeError(f"No se pudo colorear {source_path}")
+    result = None
+    warped = None
+    dataset = None
+    auxiliary_path = Path(f"{output_path}.aux.xml")
+    if auxiliary_path.exists():
+        auxiliary_path.unlink()
+    return {
+        "reportImageUrl": f"assets/rasters/{output_path.name}",
+        "reportImageSha256": sha256(output_path),
+    }
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -101,6 +145,11 @@ def main():
     )
     parser.add_argument("--output-root", type=Path, default=Path("assets/rasters"))
     parser.add_argument("--metadata", type=Path, default=Path("raster-intensity-data.js"))
+    parser.add_argument(
+        "--color-ramp",
+        type=Path,
+        default=Path(__file__).with_name("extraordinary-red-ramp.txt"),
+    )
     args = parser.parse_args()
 
     gdal.UseExceptions()
@@ -112,6 +161,11 @@ def main():
             source_path = args.source_root / config[scenario]
             output_path = args.output_root / f"{layer_key}-{scenario}.f32.gz"
             payload[layer_key][scenario] = export_band(source_path, output_path)
+            if scenario == "extra":
+                overlay_path = args.output_root / f"{layer_key}-extra-red.png"
+                payload[layer_key][scenario].update(
+                    export_report_overlay(source_path, overlay_path, args.color_ramp)
+                )
         isoline_output = args.output_root / f"{layer_key}-isolines.geojson"
         isolines[layer_key] = export_isolines(args.source_root / ISOLINES[layer_key], isoline_output)
 
@@ -123,7 +177,10 @@ def main():
         + ";\n"
     )
     args.metadata.write_text(metadata_text, encoding="utf-8")
-    print(f"Generados {len(payload) * 2} rasters y {len(isolines)} capas de isolíneas.")
+    print(
+        f"Generados {len(payload) * 2} rasters, {len(payload)} imágenes del informe "
+        f"y {len(isolines)} capas de isolíneas."
+    )
 
 
 if __name__ == "__main__":
