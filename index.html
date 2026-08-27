@@ -8,7 +8,7 @@
     <title>Alerta sismica de embalses</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="styles.css?v=11">
+    <link rel="stylesheet" href="styles.css?v=12">
   </head>
   <body>
     <main class="app-shell">
@@ -18,7 +18,7 @@
           <h1>Alerta sísmica<br><span>por embalse</span></h1>
           <p class="hero-subtitle">Lectura del IGN y evaluación independiente con las capas oficiales de intensidad.</p>
         </div>
-        <div class="version-pill"><span></span> Motor conservador v4.8</div>
+        <div class="version-pill"><span></span> Motor conservador v4.9</div>
       </header>
 
       <section class="overview" aria-labelledby="overviewTitle">
@@ -64,6 +64,7 @@
         <a href="#mapa">Mapa</a>
         <a href="#eventos">Eventos</a>
         <a href="#detalle">Detalle</a>
+        <button class="help-tab" id="helpBtn" type="button" aria-haspopup="dialog" aria-controls="helpDialog"><span aria-hidden="true">?</span> Ayuda</button>
       </nav>
 
       <section class="panel input-panel" id="lectura">
@@ -170,9 +171,90 @@
       </section>
     </main>
 
-    <script src="reservoir-vector-data.js?v=11"></script>
-    <script src="core.js?v=11"></script>
-    <script src="app.js?v=11"></script>
+    <dialog class="help-dialog" id="helpDialog" aria-labelledby="helpTitle">
+      <article class="help-sheet">
+        <header class="help-header">
+          <div>
+            <p class="kicker">Manual de usuario</p>
+            <h2 id="helpTitle">Cómo utilizar la aplicación</h2>
+          </div>
+          <form method="dialog">
+            <button class="help-close" type="submit" aria-label="Cerrar ayuda">×</button>
+          </form>
+        </header>
+
+        <div class="help-content">
+          <p class="help-lead">Consulta los sismos recientes, comprueba el estado calculado para cada embalse y genera un informe trazable del evento que necesites.</p>
+
+          <section class="help-section" aria-labelledby="helpQuickTitle">
+            <div class="help-section-title">
+              <span>01</span>
+              <div><p>Inicio rápido</p><h3 id="helpQuickTitle">Una evaluación en cuatro pasos</h3></div>
+            </div>
+            <ol class="help-steps">
+              <li><strong>Elige el periodo</strong><span>Indica entre 1 y 10 días de consulta.</span></li>
+              <li><strong>Lee los sismos</strong><span>Pulsa «Leer sismos del IGN» para cargar y analizar los eventos.</span></li>
+              <li><strong>Selecciona un evento</strong><span>Púlsalo en la tabla o directamente en el mapa.</span></li>
+              <li><strong>Revisa o informa</strong><span>Comprueba el detalle y usa «Generar informe» si necesitas conservarlo.</span></li>
+            </ol>
+            <button class="help-link" type="button" data-help-target="lectura">Ir a Lectura sísmica</button>
+          </section>
+
+          <section class="help-section" aria-labelledby="helpStatusTitle">
+            <div class="help-section-title">
+              <span>02</span>
+              <div><p>Interpretación</p><h3 id="helpStatusTitle">Qué significa cada estado</h3></div>
+            </div>
+            <div class="help-status-grid">
+              <article class="help-status ordinary"><i></i><div><strong>Situación ordinaria</strong><p>El evento queda por debajo del umbral extraordinario de la capa.</p></div></article>
+              <article class="help-status extra"><i></i><div><strong>Situación extraordinaria</strong><p>Se alcanza el umbral extraordinario, sin llegar a Escenario 0.</p></div></article>
+              <article class="help-status zero"><i></i><div><strong>Escenario 0</strong><p>Se alcanza el umbral superior definido para el embalse.</p></div></article>
+              <article class="help-status unknown"><i></i><div><strong>Revisión manual</strong><p>Faltan datos o el epicentro queda fuera del ámbito cartográfico.</p></div></article>
+            </div>
+            <p class="help-footnote">El resumen muestra, para cada embalse, el resultado más grave de todos los sismos analizados.</p>
+          </section>
+
+          <section class="help-section" aria-labelledby="helpToolsTitle">
+            <div class="help-section-title">
+              <span>03</span>
+              <div><p>Herramientas</p><h3 id="helpToolsTitle">Lectura, mapa y detalle</h3></div>
+            </div>
+            <div class="help-tool-grid">
+              <article><span aria-hidden="true">↻</span><h4>Entrada alternativa</h4><p>También puedes cargar un PDF, TXT, CSV o JSON del IGN, o pegar el texto de un boletín y pulsar «Analizar boletín».</p></article>
+              <article><span aria-hidden="true">⌖</span><h4>Mapa</h4><p>Alterna entre Casasola y Sistema Guadalhorce. Amplía, arrastra y pulsa un epicentro para seleccionarlo.</p></article>
+              <article><span aria-hidden="true">≡</span><h4>Eventos</h4><p>La tabla reúne los resultados. El evento seleccionado queda resaltado y actualiza el panel de detalle.</p></article>
+              <article><span aria-hidden="true">□</span><h4>Informe</h4><p>El informe incluye datos, cálculos, umbrales, distancias y mapas; desde él puedes imprimir o guardar como PDF.</p></article>
+            </div>
+          </section>
+
+          <section class="help-section help-review" aria-labelledby="helpReviewTitle">
+            <div class="help-section-title">
+              <span>04</span>
+              <div><p>Comprobación</p><h3 id="helpReviewTitle">Si aparece «Revisión manual»</h3></div>
+            </div>
+            <ul>
+              <li>Comprueba que el boletín contiene latitud, longitud y magnitud o PGA.</li>
+              <li>Verifica que la latitud norte y la longitud oeste tienen el signo correcto.</li>
+              <li>Contrasta el evento con la información oficial del IGN y aplica el procedimiento técnico vigente.</li>
+            </ul>
+          </section>
+
+          <aside class="help-warning">
+            <span aria-hidden="true">!</span>
+            <p><strong>Importante.</strong> Esta aplicación es una ayuda a la decisión. No sustituye el Plan de Emergencia, las comunicaciones oficiales ni la valoración de personal técnico competente.</p>
+          </aside>
+        </div>
+
+        <footer class="help-footer">
+          <span>Alerta sísmica por embalse · Manual v4.9</span>
+          <form method="dialog"><button class="primary help-done" type="submit">Entendido</button></form>
+        </footer>
+      </article>
+    </dialog>
+
+    <script src="reservoir-vector-data.js?v=12"></script>
+    <script src="core.js?v=12"></script>
+    <script src="app.js?v=12"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("sw.js").catch(() => {});

@@ -51,12 +51,35 @@ function init() {
     await runBulletinAnalysis();
   });
   $("clearBtn").addEventListener("click", clearAnalysis);
+  initHelpDialog();
   initFileInput();
   initLayerSwitch();
   initMapInteractions();
   renderVectorOverlay();
   applyMapTransform();
   renderAll();
+}
+
+function initHelpDialog() {
+  const dialog = $("helpDialog");
+  const openButton = $("helpBtn");
+
+  openButton.addEventListener("click", () => {
+    dialog.showModal();
+    dialog.querySelector(".help-content").scrollTop = 0;
+  });
+
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+
+  for (const link of dialog.querySelectorAll("[data-help-target]")) {
+    link.addEventListener("click", () => {
+      const target = $(link.dataset.helpTarget);
+      dialog.close();
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
 }
 
 async function runBulletinAnalysis() {

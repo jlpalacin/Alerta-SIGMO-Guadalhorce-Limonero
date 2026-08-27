@@ -57,7 +57,7 @@ La consola mostrará la URL del ordenador y las URLs para un móvil conectado a 
 
 El workflow actualiza `ign-terremotos.html` cada 15 minutos. El service worker no guarda ese fichero de forma persistente.
 
-Si el móvil tenía instalada una versión anterior, abre una vez la dirección de GitHub Pages añadiendo `?v=11`. La versión actual mostrará `Motor conservador v4.8` y, desde entonces, las navegaciones usarán red primero para comprobar actualizaciones.
+Si el móvil tenía instalada una versión anterior, abre una vez la dirección de GitHub Pages añadiendo `?v=12`. La versión actual mostrará `Motor conservador v4.9` y, desde entonces, las navegaciones usarán red primero para comprobar actualizaciones.
 
 La versión 4.3 selecciona inicialmente el evento con la mayor intensidad Io disponible. Desde el detalle puede generarse un informe completo del evento seleccionado y abrirse para imprimirlo o guardarlo como PDF.
 
@@ -70,6 +70,8 @@ La versión 4.6 aplica las relaciones por tramos facilitadas para convertir `mbL
 La versión 4.7 elimina la consideración fija de 50 km y utiliza exclusivamente los radios de acción ICOLD dependientes de la magnitud. Los epicentros del mapa son botones seleccionables; al pulsarlos se actualizan el evento activo, su detalle y el informe que se genere.
 
 La versión 4.8 incorpora en los dos mapas del informe la ortofoto oficial PNOA de máxima actualidad suministrada mediante el servicio WMS del IGN-CNIG. Las isoyetas y el epicentro se dibujan sobre la ortofoto y se mantiene el mapa anterior como respaldo si el servicio externo no estuviera disponible.
+
+La versión 4.9 incorpora un manual de usuario dentro de la aplicación. El botón `Ayuda` de la navegación abre una guía adaptada a móvil con el flujo de trabajo, la interpretación de los cuatro estados, el uso del mapa y del informe, y las comprobaciones recomendadas cuando se solicita una revisión manual.
 
 ## Archivos de datos
 
