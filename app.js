@@ -572,12 +572,31 @@ function reportMapHtml(layerKey, data) {
   const marker = point && point.x >= 0 && point.x <= MAP.width && point.y >= 0 && point.y <= MAP.height
     ? `<g><circle cx="${point.x}" cy="${point.y}" r="25" fill="#fff" stroke="#152c32" stroke-width="8"/><circle cx="${point.x}" cy="${point.y}" r="8" fill="#b42318"/><title>${escapeHtml(data.event || "Evento")} · Io ${Core.formatThreshold(data.intensity)}</title></g>`
     : "";
-  const mapBaseUrl = new URL("assets/map-base.jpg", location.href).href;
-  const orthophotoUrl = pnoaReportUrl();
+  const satelliteTiles = reportGoogleSatelliteTilesHtml();
   const legend = raster
     ? `<div class="raster-legend"><span>I extraordinaria alta · ${Core.formatThreshold(raster.maximum)}</span><i></i><span>${Core.formatThreshold(raster.minimum)} · I extraordinaria baja</span></div><small class="raster-note">Rojo más oscuro: menor intensidad epicentral necesaria para alcanzar la situación extraordinaria.</small>`
     : "";
-  return `<figure class="report-map"><svg viewBox="0 0 ${MAP.width} ${MAP.height}" role="img" aria-label="Ortofoto PNOA, intensidad extraordinaria, isolíneas de ${escapeHtml(label)} y epicentro"><image href="${escapeHtml(mapBaseUrl)}" x="0" y="0" width="${MAP.width}" height="${MAP.height}" preserveAspectRatio="none"/><image href="${escapeHtml(orthophotoUrl)}" x="0" y="0" width="${MAP.width}" height="${MAP.height}" preserveAspectRatio="none" opacity="0.9"/>${rasterOverlay}${paths}${marker}</svg>${legend}<figcaption><strong>${escapeHtml(label)}</strong> · ${escapeHtml(data.event || "Evento")} · Io ${Core.formatThreshold(data.intensity)}. <strong>TIF extraordinario:</strong> ${escapeHtml(raster?.sourceFile || "no disponible")}. El sombreado rojo representa su Banda 1; las isolíneas y el epicentro son información visual. Los cálculos siguen usando exclusivamente el valor de la celda del GeoTIFF. Base: <a href="https://pnoa.ign.es/pnoa-imagen/ortofotos-pnoa-maxima-actualidad" target="_blank" rel="noreferrer">Ortofoto PNOA máxima actualidad, IGN-CNIG</a>.</figcaption></figure>`;
+  return `<figure class="report-map"><svg viewBox="0 0 ${MAP.width} ${MAP.height}" role="img" aria-label="Imagen satélite de Google, intensidad extraordinaria, isolíneas de ${escapeHtml(label)} y epicentro"><rect x="0" y="0" width="${MAP.width}" height="${MAP.height}" fill="#d6dfdc"/>${satelliteTiles}${rasterOverlay}${paths}${marker}<text x="${MAP.width - 26}" y="${MAP.height - 24}" text-anchor="end" fill="#fff" stroke="#152c32" stroke-width="2" paint-order="stroke" font-family="Arial,sans-serif" font-size="30">Imágenes © Google</text></svg>${legend}<figcaption><strong>${escapeHtml(label)}</strong> · ${escapeHtml(data.event || "Evento")} · Io ${Core.formatThreshold(data.intensity)}. <strong>TIF extraordinario:</strong> ${escapeHtml(raster?.sourceFile || "no disponible")}. El sombreado rojo representa su Banda 1; las isolíneas y el epicentro son información visual. Los cálculos siguen usando exclusivamente el valor de la celda del GeoTIFF. Fondo: imágenes satélite de Google, igual que en el mapa interactivo.</figcaption></figure>`;
+}
+
+function reportGoogleSatelliteTilesHtml(zoom = 6) {
+  const nwTile = lonLatToTile(MAP.west, MAP.north, zoom);
+  const seTile = lonLatToTile(MAP.east, MAP.south, zoom);
+  const startX = Math.floor(nwTile.x);
+  const endX = Math.floor(seTile.x);
+  const startY = Math.floor(nwTile.y);
+  const endY = Math.floor(seTile.y);
+  const worldTiles = 2 ** zoom;
+  const images = [];
+  for (let y = startY; y <= endY; y += 1) {
+    for (let x = startX; x <= endX; x += 1) {
+      const wrapped = ((x % worldTiles) + worldTiles) % worldTiles;
+      const url = `https://mt${Math.abs(x + y) % 4}.google.com/vt/lyrs=s&x=${wrapped}&y=${y}&z=${zoom}`;
+      const box = tileBox(x, y, zoom);
+      images.push(`<image href="${escapeHtml(url)}" x="${box.left / 100 * MAP.width}" y="${box.top / 100 * MAP.height}" width="${box.width / 100 * MAP.width}" height="${box.height / 100 * MAP.height}" preserveAspectRatio="none"/>`);
+    }
+  }
+  return images.join("");
 }
 
 function reportExtraRasterDataUrl(layerKey) {
@@ -644,24 +663,6 @@ function extraordinaryRasterColor(value, minimum, maximum) {
 
 function layerColor(layerKey) {
   return { casasola: "#db5d3f", guadalhorce: "#177e89", limonero: "#7656a8" }[layerKey] || "#177e89";
-}
-
-function pnoaReportUrl() {
-  const url = new URL("https://www.ign.es/wms-inspire/pnoa-ma");
-  url.search = new URLSearchParams({
-    SERVICE: "WMS",
-    VERSION: "1.3.0",
-    REQUEST: "GetMap",
-    LAYERS: "OI.OrthoimageCoverage",
-    STYLES: "",
-    FORMAT: "image/png",
-    TRANSPARENT: "TRUE",
-    CRS: "EPSG:4326",
-    BBOX: `${MAP.south},${MAP.west},${MAP.north},${MAP.east}`,
-    WIDTH: "1600",
-    HEIGHT: "1027",
-  }).toString();
-  return url.href;
 }
 
 function reservoirDistances(data) {

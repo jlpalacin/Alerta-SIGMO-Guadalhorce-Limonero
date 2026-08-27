@@ -60,7 +60,7 @@ La consola mostrará la URL del ordenador y las URLs para un móvil conectado a 
 
 El workflow actualiza `ign-terremotos.html` cada 15 minutos. El service worker no guarda ese fichero de forma persistente.
 
-Si el móvil tenía instalada una versión anterior, abre una vez la dirección de GitHub Pages añadiendo `?v=16`. La versión actual mostrará `Motor raster v5.2` y, desde entonces, las navegaciones usarán red primero para comprobar actualizaciones.
+Si el móvil tenía instalada una versión anterior, abre una vez la dirección de GitHub Pages añadiendo `?v=17`. La versión actual mostrará `Motor raster v5.3` y, desde entonces, las navegaciones usarán red primero para comprobar actualizaciones.
 
 La versión 4.3 selecciona inicialmente el evento con la mayor intensidad Io disponible. Desde el detalle puede generarse un informe completo del evento seleccionado y abrirse para imprimirlo o guardarlo como PDF.
 
@@ -83,6 +83,8 @@ La versión 5.0.1 admite tanto la estructura recomendada `assets/rasters/` como 
 La versión 5.1 añade a los tres mapas del informe el sombreado de la Banda 1 del escenario extraordinario sobre la ortofoto. El rojo cambia de claro a oscuro según el condicionamiento del mapa; las isolíneas y el epicentro permanecen visibles por encima. Esta representación es únicamente informativa y no modifica los cálculos.
 
 La versión 5.2 genera por separado, mediante GDAL, una imagen georreferenciada para cada TIF extraordinario: Casasola, Sistema Guadalhorce y Limonero. El informe carga la imagen correspondiente a cada embalse y conserva la reconstrucción en el navegador únicamente como respaldo.
+
+La versión 5.3 elimina del informe el antiguo fondo `map-base.jpg` y el intento de cargar PNOA. Los tres mapas del informe utilizan las mismas teselas de imagen satélite de Google que el mapa interactivo, manteniendo por encima el sombreado extraordinario, las isolíneas y el epicentro.
 
 ## Archivos de datos
 

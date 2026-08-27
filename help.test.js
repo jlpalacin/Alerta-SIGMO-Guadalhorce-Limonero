@@ -12,7 +12,7 @@ assert.match(html, /Inicio rápido/);
 assert.match(html, /Qué significa cada estado/);
 assert.match(html, /Si aparece «Revisión manual»/);
 assert.match(html, /data-asset="limonero"/);
-assert.match(html, /Motor raster v5\.2/);
+assert.match(html, /Motor raster v5\.3/);
 assert.match(app, /function initHelpDialog\(\)/);
 assert.match(app, /dialog\.showModal\(\)/);
 assert.match(app, /data-help-target/);
@@ -20,8 +20,8 @@ assert.match(app, /DecompressionStream\("gzip"\)/);
 assert.match(app, /RESERVOIR_RASTER_DATA/);
 assert.match(styles, /\.help-dialog::backdrop/);
 assert.match(styles, /@media \(max-width: 640px\)[\s\S]+\.help-dialog/);
-assert.match(serviceWorker, /alerta-embalses-v16/);
-assert.match(serviceWorker, /app\.js\?v=16/);
+assert.match(serviceWorker, /alerta-embalses-v17/);
+assert.match(serviceWorker, /app\.js\?v=17/);
 assert.match(app, /response\.status === 404/);
 assert.match(app, /dataUrl\.split\("\/"\)\.pop\(\)/);
 assert.match(app, /function reportExtraRasterDataUrl\(layerKey\)/);
@@ -29,5 +29,8 @@ assert.match(app, /function extraordinaryRasterColor\(value, minimum, maximum\)/
 assert.match(app, /El sombreado rojo representa su Banda 1/);
 assert.match(app, /raster\.reportImageDataUrl = await blobToDataUrl/);
 assert.match(app, /TIF extraordinario:/);
+assert.match(app, /function reportGoogleSatelliteTilesHtml\(zoom = 6\)/);
+assert.match(app, /Fondo: imágenes satélite de Google/);
+assert.doesNotMatch(app, /function pnoaReportUrl\(\)/);
 
 console.log("OK: acceso, contenido, interacción, adaptación móvil y caché del manual verificados.");
