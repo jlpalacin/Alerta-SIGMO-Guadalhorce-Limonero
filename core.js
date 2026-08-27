@@ -28,19 +28,18 @@
     Object.freeze({ magnitudeAbove: 4, distanceKm: 25 }),
   ]);
 
-  // Las capas corregidas comparten la misma correspondencia de campos.
   const LAYERS = Object.freeze({
     casasola: {
       key: "casasola",
       label: "Casasola",
-      extraField: "IntensidadExtraordinaria",
-      zeroField: "Intensidad",
     },
     guadalhorce: {
       key: "guadalhorce",
       label: "Sistema Guadalhorce",
-      extraField: "IntensidadExtraordinaria",
-      zeroField: "Intensidad",
+    },
+    limonero: {
+      key: "limonero",
+      label: "Limonero",
     },
   });
 
@@ -223,71 +222,85 @@
     };
   }
 
-  function geometryContainsLonLat(geometry, lon, lat) {
-    if (!geometry) return false;
-    if (geometry.type === "Polygon") return polygonContainsLonLat(geometry.coordinates, lon, lat);
-    if (geometry.type === "MultiPolygon") return geometry.coordinates.some((polygon) => polygonContainsLonLat(polygon, lon, lat));
-    return false;
+  function wgs84ToUtm30(lat, lon) {
+    const numericLat = toNumber(lat);
+    const numericLon = toNumber(lon);
+    if (numericLat == null || numericLon == null) return null;
+    const semiMajor = 6378137;
+    const flattening = 1 / 298.257222101;
+    const scale = 0.9996;
+    const eccentricitySquared = flattening * (2 - flattening);
+    const secondEccentricitySquared = eccentricitySquared / (1 - eccentricitySquared);
+    const latitude = numericLat * Math.PI / 180;
+    const longitude = numericLon * Math.PI / 180;
+    const centralMeridian = -3 * Math.PI / 180;
+    const sinLatitude = Math.sin(latitude);
+    const cosLatitude = Math.cos(latitude);
+    const tanLatitude = Math.tan(latitude);
+    const radius = semiMajor / Math.sqrt(1 - eccentricitySquared * sinLatitude ** 2);
+    const tangent = tanLatitude ** 2;
+    const curvature = secondEccentricitySquared * cosLatitude ** 2;
+    const longitudeArc = cosLatitude * (longitude - centralMeridian);
+    const meridian = semiMajor * (
+      (1 - eccentricitySquared / 4 - 3 * eccentricitySquared ** 2 / 64 - 5 * eccentricitySquared ** 3 / 256) * latitude
+      - (3 * eccentricitySquared / 8 + 3 * eccentricitySquared ** 2 / 32 + 45 * eccentricitySquared ** 3 / 1024) * Math.sin(2 * latitude)
+      + (15 * eccentricitySquared ** 2 / 256 + 45 * eccentricitySquared ** 3 / 1024) * Math.sin(4 * latitude)
+      - (35 * eccentricitySquared ** 3 / 3072) * Math.sin(6 * latitude)
+    );
+    const easting = 500000 + scale * radius * (
+      longitudeArc
+      + (1 - tangent + curvature) * longitudeArc ** 3 / 6
+      + (5 - 18 * tangent + tangent ** 2 + 72 * curvature - 58 * secondEccentricitySquared) * longitudeArc ** 5 / 120
+    );
+    const northing = scale * (
+      meridian
+      + radius * tanLatitude * (
+        longitudeArc ** 2 / 2
+        + (5 - tangent + 9 * curvature + 4 * curvature ** 2) * longitudeArc ** 4 / 24
+        + (61 - 58 * tangent + tangent ** 2 + 600 * curvature - 330 * secondEccentricitySquared) * longitudeArc ** 6 / 720
+      )
+    );
+    return { x: easting, y: northing };
   }
 
-  function polygonContainsLonLat(polygon, lon, lat) {
-    if (!polygon?.length || !pointInRing(polygon[0], lon, lat)) return false;
-    for (let i = 1; i < polygon.length; i += 1) {
-      if (pointInRing(polygon[i], lon, lat)) return false;
+  function readRasterBandValue(raster, lat, lon) {
+    const projected = wgs84ToUtm30(lat, lon);
+    const transform = raster?.geoTransform;
+    if (!projected || !raster?.values || !Array.isArray(transform) || transform.length !== 6) {
+      return { value: null, row: null, column: null, inBounds: false, loaded: Boolean(raster?.values) };
     }
-    return true;
-  }
-
-  function pointInRing(ring, lon, lat) {
-    if (!ring?.length) return false;
-    let inside = false;
-    for (let i = 0, j = ring.length - 1; i < ring.length; j = i, i += 1) {
-      const [xi, yi] = ring[i];
-      const [xj, yj] = ring[j];
-      const crossing = ((yi > lat) !== (yj > lat)) && (lon < ((xj - xi) * (lat - yi)) / (yj - yi || Number.EPSILON) + xi);
-      if (crossing) inside = !inside;
+    const determinant = transform[1] * transform[5] - transform[2] * transform[4];
+    if (!Number.isFinite(determinant) || determinant === 0) {
+      return { value: null, row: null, column: null, inBounds: false, loaded: true };
     }
-    return inside;
-  }
-
-  function collectionBounds(collection) {
-    let west = Infinity;
-    let east = -Infinity;
-    let south = Infinity;
-    let north = -Infinity;
-    const visit = (node) => {
-      if (!Array.isArray(node)) return;
-      if (node.length >= 2 && typeof node[0] === "number" && typeof node[1] === "number") {
-        west = Math.min(west, node[0]);
-        east = Math.max(east, node[0]);
-        south = Math.min(south, node[1]);
-        north = Math.max(north, node[1]);
-        return;
-      }
-      node.forEach(visit);
-    };
-    for (const feature of collection?.features || []) visit(feature.geometry?.coordinates);
-    return { west, east, south, north };
+    const deltaX = projected.x - transform[0];
+    const deltaY = projected.y - transform[3];
+    const column = Math.floor((transform[5] * deltaX - transform[2] * deltaY) / determinant);
+    const row = Math.floor((-transform[4] * deltaX + transform[1] * deltaY) / determinant);
+    const inBounds = column >= 0 && column < raster.width && row >= 0 && row < raster.height;
+    if (!inBounds) return { value: null, row, column, inBounds: false, loaded: true, ...projected };
+    const value = raster.values[row * raster.width + column];
+    const noData = raster.noData;
+    const isNoData = !Number.isFinite(value)
+      || Math.abs(value) >= 3.4e38
+      || (noData != null && value === Math.fround(noData));
+    return { value: isNoData ? null : value, row, column, inBounds: true, loaded: true, ...projected };
   }
 
   function readThresholds(layerKey, lat, lon, datasets) {
-    const config = LAYERS[layerKey];
-    const collection = datasets?.[layerKey];
-    if (!config || !collection) return { extra: null, zero: null, matches: 0, inCoverage: false };
-    const bounds = collection.__bounds || (collection.__bounds = collectionBounds(collection));
-    const inCoverage = lon >= bounds.west && lon <= bounds.east && lat >= bounds.south && lat <= bounds.north;
-    let extra = null;
-    let zero = null;
-    let matches = 0;
-    for (const feature of collection.features || []) {
-      if (!geometryContainsLonLat(feature.geometry, lon, lat)) continue;
-      matches += 1;
-      const extraValue = toNumber(feature.properties?.[config.extraField]);
-      const zeroValue = toNumber(feature.properties?.[config.zeroField]);
-      if (extraValue != null) extra = extra == null ? extraValue : Math.min(extra, extraValue);
-      if (zeroValue != null) zero = zero == null ? zeroValue : Math.min(zero, zeroValue);
-    }
-    return { extra, zero, matches, inCoverage, bounds };
+    const layer = datasets?.[layerKey];
+    if (!LAYERS[layerKey] || !layer) return { extra: null, zero: null, matches: 0, inCoverage: false, samples: null };
+    const extraSample = readRasterBandValue(layer.extra, lat, lon);
+    const zeroSample = readRasterBandValue(layer.zero, lat, lon);
+    const matches = Number(extraSample.value != null) + Number(zeroSample.value != null);
+    return {
+      extra: extraSample.value,
+      zero: zeroSample.value,
+      matches,
+      inCoverage: matches === 2,
+      samples: { extra: extraSample, zero: zeroSample },
+      source: "band-1",
+    };
   }
 
   function evaluateLayer(layerKey, enrichedEvent, datasets, priorReasons = []) {
@@ -302,12 +315,12 @@
       return decision(LEVELS.UNKNOWN, layerKey, data, null, reasons);
     }
     const thresholds = readThresholds(layerKey, data.lat, data.lon, datasets);
-    if (thresholds.matches) {
-      reasons.push(`Epicentro contenido en ${thresholds.matches} poligono(s): umbral extraordinario ${formatThreshold(thresholds.extra)} y Escenario 0 ${formatThreshold(thresholds.zero)}.`);
-    } else if (thresholds.inCoverage) {
-      reasons.push("Epicentro dentro del ambito cartografico y fuera de las curvas de activacion.");
+    if (thresholds.inCoverage) {
+      reasons.push(`Banda 1 consultada en la celda del epicentro: umbral extraordinario ${formatThreshold(thresholds.extra)} y Escenario 0 ${formatThreshold(thresholds.zero)}.`);
+    } else if (thresholds.matches) {
+      reasons.push("Una de las dos Bandas 1 no contiene un valor valido en el epicentro; se requiere revision manual.");
     } else {
-      reasons.push("Epicentro fuera del ambito cubierto por la capa; se requiere revision manual.");
+      reasons.push("Epicentro fuera del ambito raster o sobre una celda NoData; se requiere revision manual.");
     }
     if (data.pga != null && data.pga >= 26.5) {
       reasons.push("PGA >= 26,5 cm/s2.");
@@ -337,6 +350,7 @@
       layers: {
         casasola: evaluateLayer("casasola", data, datasets, reasons),
         guadalhorce: evaluateLayer("guadalhorce", data, datasets, reasons),
+        limonero: evaluateLayer("limonero", data, datasets, reasons),
       },
     };
   }
@@ -395,7 +409,8 @@
     toMomentMagnitude,
     enrichEvent,
     parseBulletin,
-    geometryContainsLonLat,
+    wgs84ToUtm30,
+    readRasterBandValue,
     readThresholds,
     evaluateLayer,
     evaluateEvent,

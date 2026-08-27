@@ -1,7 +1,7 @@
 {
   "name": "Alerta sísmica de embalses",
   "short_name": "Alerta Embalses",
-  "description": "Estado de alerta sísmica de Casasola y los embalses del Guadalhorce.",
+  "description": "Estado de alerta sísmica de Casasola, el sistema Guadalhorce y Limonero mediante mapas raster de intensidad.",
   "lang": "es",
   "start_url": "./",
   "scope": "./",

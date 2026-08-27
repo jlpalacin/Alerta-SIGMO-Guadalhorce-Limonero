@@ -6,8 +6,9 @@ Aplicación móvil/PWA basada en **Crear app móvil de alerta**, ampliada para c
 - El Conde de Guadalhorce.
 - Guadalhorce.
 - Guadalteba.
+- Limonero.
 
-Los tres embalses del sistema Guadalhorce comparten la misma capa técnica, por lo que obtienen el mismo estado. La interfaz los presenta individualmente para facilitar la lectura operativa.
+Los tres embalses del sistema Guadalhorce comparten los mismos mapas raster, por lo que obtienen el mismo estado. Casasola y Limonero se calculan con sus respectivos mapas. La interfaz presenta los cinco embalses individualmente para facilitar la lectura operativa.
 
 La versión 4.2 añade al detalle del evento la trazabilidad completa de la conversión de magnitud, el cálculo de Io y la lectura de los umbrales de ambas capas. Los marcadores sísmicos son más pequeños y conservan su tamaño visual durante el zoom.
 
@@ -17,26 +18,28 @@ Para cada sismo:
 
 1. Convierte la magnitud del IGN a `Mw` cuando es necesario.
 2. Estima la intensidad epicentral `Io` con la relación de la aplicación original.
-3. Localiza el epicentro dentro de cada GeoPackage convertido a GeoJSON.
-4. Lee el menor umbral de los polígonos que contienen el punto (criterio conservador).
-5. Calcula, por capa, `Situación ordinaria`, `Situación extraordinaria`, `Escenario 0` o `Revisión manual`.
-6. Si hay varios sismos, adopta para cada embalse el resultado más grave.
+3. Transforma las coordenadas WGS84 del epicentro a ETRS89 / UTM zona 30N (`EPSG:25830`).
+4. Localiza la celda correspondiente en los GeoTIFF extraordinario y de Escenario 0 de cada embalse.
+5. Lee directamente el valor `Float32` de la Banda 1 de cada celda, sin interpolación ni redondeo previo.
+6. Calcula, por embalse, `Situación ordinaria`, `Situación extraordinaria`, `Escenario 0` o `Revisión manual`.
+7. Si hay varios sismos, adopta para cada embalse el resultado más grave.
 
 También conserva los umbrales directos de PGA de la aplicación original:
 
 - PGA mayor o igual a 9,4 cm/s²: situación extraordinaria.
 - PGA mayor o igual a 26,5 cm/s²: Escenario 0.
 
-## Correspondencia de campos
+## Correspondencia de mapas raster
 
-Las dos capas corregidas emplean la misma correspondencia:
+Cada resultado usa dos GeoTIFF independientes:
 
-| Capa | Situación extraordinaria | Escenario 0 |
+| Embalse o sistema | Situación extraordinaria | Escenario 0 |
 |---|---|---|
-| Casasola | `IntensidadExtraordinaria` | `Intensidad` |
-| Sistema Guadalhorce | `IntensidadExtraordinaria` | `Intensidad` |
+| Casasola | `HY8235-CASA-MapaDiscreto(tratado)-Extraord-I0.tif` | `HY8235-CASA-MapaI0Discreto(tratado)-E0-I0.tif` |
+| Sistema Guadalhorce | `HY8235-GGHOR-MapaI0Discreto(tratado)-Ex-I0.tif` | `HY8235-GGHOR-MapaI0Discreto(tratado)-E0-I0.tif` |
+| Limonero | `HY8235-LMON-MapaDiscreto(tratado)-Extraord-I0.tif` | `HY8235-LMON-MapaDiscreto(tratado)-E0-I0.tif` |
 
-La capa Guadalhorce incorporada es la versión corregida del 17/08/2026, con la jerarquía de intensidades ya normalizada.
+El valor de Banda 1 del primer mapa es el umbral extraordinario y el del segundo es el umbral de Escenario 0. Si alguna celda está fuera del raster o contiene `NoData`, la aplicación solicita revisión manual.
 
 ## Abrir en Windows
 
@@ -57,7 +60,7 @@ La consola mostrará la URL del ordenador y las URLs para un móvil conectado a 
 
 El workflow actualiza `ign-terremotos.html` cada 15 minutos. El service worker no guarda ese fichero de forma persistente.
 
-Si el móvil tenía instalada una versión anterior, abre una vez la dirección de GitHub Pages añadiendo `?v=12`. La versión actual mostrará `Motor conservador v4.9` y, desde entonces, las navegaciones usarán red primero para comprobar actualizaciones.
+Si el móvil tenía instalada una versión anterior, abre una vez la dirección de GitHub Pages añadiendo `?v=13`. La versión actual mostrará `Motor raster v5.0` y, desde entonces, las navegaciones usarán red primero para comprobar actualizaciones.
 
 La versión 4.3 selecciona inicialmente el evento con la mayor intensidad Io disponible. Desde el detalle puede generarse un informe completo del evento seleccionado y abrirse para imprimirlo o guardarlo como PDF.
 
@@ -73,11 +76,18 @@ La versión 4.8 incorpora en los dos mapas del informe la ortofoto oficial PNOA 
 
 La versión 4.9 incorpora un manual de usuario dentro de la aplicación. El botón `Ayuda` de la navegación abre una guía adaptada a móvil con el flujo de trabajo, la interpretación de los cuatro estados, el uso del mapa y del informe, y las comprobaciones recomendadas cuando se solicita una revisión manual.
 
+La versión 5.0 sustituye las capas poligonales anteriores por seis mapas GeoTIFF. Los umbrales se obtienen leyendo la Banda 1 de la celda correspondiente a las coordenadas del sismo. También incorpora Limonero al resumen, la tabla, el mapa, el detalle y el informe.
+
 ## Archivos de datos
 
-`reservoir-vector-data.js` se ha generado directamente a partir de:
+`raster-intensity-data.js` contiene los metadatos de los seis GeoTIFF y `assets/rasters/` contiene sus Bandas 1 comprimidas sin pérdida como matrices `Float32`, además de las isolíneas transformadas a WGS84 para visualización.
 
-- `CasasolaIntensidadGeoJson_modified.gpkg` (17 entidades).
-- `GuadalhorceIntensidadGeoJson_modified.gpkg` (16 entidades).
+Los datos se regeneran desde los GeoTIFF e isolíneas originales mediante:
+
+```powershell
+& 'C:\Program Files\QGIS 3.38.2\bin\python-qgis.bat' .\tools\build-raster-data.py
+```
+
+Las isolíneas solo se emplean para dibujar el mapa. Las decisiones se calculan exclusivamente con la Banda 1 de los GeoTIFF.
 
 La aplicación es una ayuda a la decisión. No sustituye el Plan de Emergencia, las comunicaciones oficiales ni la evaluación de personal técnico competente.

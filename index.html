@@ -4,11 +4,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#0c5561">
-    <meta name="description" content="Evaluacion sismica de Casasola y los embalses del Guadalhorce.">
+    <meta name="description" content="Evaluación sísmica de Casasola, el sistema Guadalhorce y Limonero mediante mapas raster de intensidad.">
     <title>Alerta sismica de embalses</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="styles.css?v=12">
+    <link rel="stylesheet" href="styles.css?v=13">
   </head>
   <body>
     <main class="app-shell">
@@ -18,7 +18,7 @@
           <h1>Alerta sísmica<br><span>por embalse</span></h1>
           <p class="hero-subtitle">Lectura del IGN y evaluación independiente con las capas oficiales de intensidad.</p>
         </div>
-        <div class="version-pill"><span></span> Motor conservador v4.9</div>
+        <div class="version-pill"><span></span> Motor raster v5.0</div>
       </header>
 
       <section class="overview" aria-labelledby="overviewTitle">
@@ -41,22 +41,28 @@
             <div class="card-top"><span class="asset-code">CDG</span><span class="status-dot"></span></div>
             <h3>El Conde de Guadalhorce</h3>
             <strong class="asset-status">Sin analizar</strong>
-            <p class="asset-event">Capa común del sistema Guadalhorce</p>
+            <p class="asset-event">Raster común del sistema Guadalhorce</p>
           </article>
           <article class="reservoir-card unknown" data-asset="guadalhorce">
             <div class="card-top"><span class="asset-code">GUA</span><span class="status-dot"></span></div>
             <h3>Guadalhorce</h3>
             <strong class="asset-status">Sin analizar</strong>
-            <p class="asset-event">Capa común del sistema Guadalhorce</p>
+            <p class="asset-event">Raster común del sistema Guadalhorce</p>
           </article>
           <article class="reservoir-card unknown" data-asset="guadalteba">
             <div class="card-top"><span class="asset-code">GTE</span><span class="status-dot"></span></div>
             <h3>Guadalteba</h3>
             <strong class="asset-status">Sin analizar</strong>
-            <p class="asset-event">Capa común del sistema Guadalhorce</p>
+            <p class="asset-event">Raster común del sistema Guadalhorce</p>
+          </article>
+          <article class="reservoir-card unknown" data-asset="limonero">
+            <div class="card-top"><span class="asset-code">LIM</span><span class="status-dot"></span></div>
+            <h3>Limonero</h3>
+            <strong class="asset-status">Sin analizar</strong>
+            <p class="asset-event">Raster propio de Limonero</p>
           </article>
         </div>
-        <p class="shared-layer-note"><span>i</span> El Conde de Guadalhorce, Guadalhorce y Guadalteba comparten la capa técnica “Guadalhorce”; por ello reciben el mismo estado.</p>
+        <p class="shared-layer-note"><span>i</span> El Conde de Guadalhorce, Guadalhorce y Guadalteba comparten los mapas raster del sistema Guadalhorce; Casasola y Limonero disponen de mapas propios.</p>
       </section>
 
       <nav class="tabs" aria-label="Secciones">
@@ -111,7 +117,9 @@
         <div class="layer-switch" role="group" aria-label="Capa visible">
           <button class="active" type="button" data-layer="casasola"><span class="line casasola"></span> Casasola</button>
           <button type="button" data-layer="guadalhorce"><span class="line guadalhorce"></span> Sistema Guadalhorce</button>
+          <button type="button" data-layer="limonero"><span class="line limonero"></span> Limonero</button>
         </div>
+        <p class="raster-status" id="rasterStatus" role="status" aria-live="polite">Cargando Bandas 1…</p>
         <div class="map-frame" id="mapFrame">
           <div class="map-layer" id="mapLayer">
             <img class="map-base" src="assets/map-base.jpg" alt="Mapa base de la península y entorno">
@@ -124,7 +132,7 @@
         </div>
         <div class="map-legend">
           <span><i class="legend-quake"></i> Sismo analizado</span>
-          <span id="layerLegend"><i class="legend-line casasola"></i> Curvas Casasola</span>
+          <span id="layerLegend"><i class="legend-line casasola"></i> Isolíneas Casasola</span>
           <span class="map-select-help">Pulsa un sismo para seleccionarlo</span>
         </div>
       </section>
@@ -221,7 +229,7 @@
             </div>
             <div class="help-tool-grid">
               <article><span aria-hidden="true">↻</span><h4>Entrada alternativa</h4><p>También puedes cargar un PDF, TXT, CSV o JSON del IGN, o pegar el texto de un boletín y pulsar «Analizar boletín».</p></article>
-              <article><span aria-hidden="true">⌖</span><h4>Mapa</h4><p>Alterna entre Casasola y Sistema Guadalhorce. Amplía, arrastra y pulsa un epicentro para seleccionarlo.</p></article>
+              <article><span aria-hidden="true">⌖</span><h4>Mapa</h4><p>Alterna entre Casasola, Sistema Guadalhorce y Limonero. Amplía, arrastra y pulsa un epicentro para seleccionarlo.</p></article>
               <article><span aria-hidden="true">≡</span><h4>Eventos</h4><p>La tabla reúne los resultados. El evento seleccionado queda resaltado y actualiza el panel de detalle.</p></article>
               <article><span aria-hidden="true">□</span><h4>Informe</h4><p>El informe incluye datos, cálculos, umbrales, distancias y mapas; desde él puedes imprimir o guardar como PDF.</p></article>
             </div>
@@ -246,15 +254,15 @@
         </div>
 
         <footer class="help-footer">
-          <span>Alerta sísmica por embalse · Manual v4.9</span>
+          <span>Alerta sísmica por embalse · Manual v5.0</span>
           <form method="dialog"><button class="primary help-done" type="submit">Entendido</button></form>
         </footer>
       </article>
     </dialog>
 
-    <script src="reservoir-vector-data.js?v=12"></script>
-    <script src="core.js?v=12"></script>
-    <script src="app.js?v=12"></script>
+    <script src="raster-intensity-data.js?v=13"></script>
+    <script src="core.js?v=13"></script>
+    <script src="app.js?v=13"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("sw.js").catch(() => {});

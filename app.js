@@ -1,14 +1,17 @@
 "use strict";
 
 const Core = window.AlertCore;
-const DATASETS = window.RESERVOIR_VECTOR_DATA;
+const DATASETS = window.RESERVOIR_RASTER_DATA;
+const ISOLINES = {};
 const { LEVELS, SEVERITY } = Core;
+const LAYER_KEYS = ["casasola", "guadalhorce", "limonero"];
 
 const ASSETS = [
   { key: "casasola", label: "Casasola", layer: "casasola", lat: 36.8016, lon: -4.4945, mitecoCode: "6290014" },
   { key: "conde", label: "El Conde de Guadalhorce", layer: "guadalhorce", lat: 36.9352, lon: -4.7995, mitecoCode: "6290035" },
   { key: "guadalhorce", label: "Guadalhorce", layer: "guadalhorce", lat: 36.9427, lon: -4.8009, mitecoCode: "6290030" },
   { key: "guadalteba", label: "Guadalteba", layer: "guadalhorce", lat: 36.9426, lon: -4.7998, mitecoCode: "6290026" },
+  { key: "limonero", label: "Limonero", layer: "limonero", lat: 36.765, lon: -4.438, mitecoCode: null },
 ];
 
 const MAP = {
@@ -42,7 +45,7 @@ const state = {
 
 init();
 
-function init() {
+async function init() {
   $("readIgnBtn").addEventListener("click", runIgnRead);
   $("analyzeBtn").addEventListener("click", runBulletinAnalysis);
   $("reportBtn").addEventListener("click", generateSelectedReport);
@@ -55,9 +58,50 @@ function init() {
   initFileInput();
   initLayerSwitch();
   initMapInteractions();
-  renderVectorOverlay();
   applyMapTransform();
   renderAll();
+  setRasterControlsReady(false);
+  try {
+    await loadRasterData();
+    setRasterControlsReady(true);
+    renderVectorOverlay();
+    $("rasterStatus").textContent = "Bandas 1 cargadas";
+  } catch (error) {
+    $("rasterStatus").textContent = "Error al cargar los mapas";
+    setNotice(`No se pudieron cargar los mapas raster: ${error.message}`, true);
+  }
+}
+
+async function loadRasterData() {
+  const rasterTasks = LAYER_KEYS.flatMap((layerKey) => ["extra", "zero"].map(async (scenario) => {
+    const raster = DATASETS?.[layerKey]?.[scenario];
+    if (!raster) throw new Error(`falta la capa ${layerKey}/${scenario}`);
+    const response = await fetch(raster.dataUrl);
+    if (!response.ok) throw new Error(`${raster.sourceFile}: HTTP ${response.status}`);
+    const payload = await response.arrayBuffer();
+    const signature = new Uint8Array(payload, 0, Math.min(2, payload.byteLength));
+    let buffer = payload;
+    if (signature[0] === 0x1f && signature[1] === 0x8b) {
+      if (!("DecompressionStream" in window)) throw new Error("el navegador no admite la descompresión de los datos raster");
+      const stream = new Blob([payload]).stream().pipeThrough(new DecompressionStream("gzip"));
+      buffer = await new Response(stream).arrayBuffer();
+    }
+    const expectedBytes = raster.width * raster.height * Float32Array.BYTES_PER_ELEMENT;
+    if (buffer.byteLength !== expectedBytes) throw new Error(`${raster.sourceFile}: tamaño de datos no válido`);
+    raster.values = new Float32Array(buffer);
+  }));
+  const isolineTasks = LAYER_KEYS.map(async (layerKey) => {
+    const config = window.RESERVOIR_ISOLINE_DATA?.[layerKey];
+    if (!config) throw new Error(`faltan las isolíneas ${layerKey}`);
+    const response = await fetch(config.dataUrl);
+    if (!response.ok) throw new Error(`${config.sourceFile}: HTTP ${response.status}`);
+    ISOLINES[layerKey] = await response.json();
+  });
+  await Promise.all([...rasterTasks, ...isolineTasks]);
+}
+
+function setRasterControlsReady(ready) {
+  for (const id of ["readIgnBtn", "analyzeBtn", "sampleBtn"]) $(id).disabled = !ready;
 }
 
 function initHelpDialog() {
@@ -224,7 +268,7 @@ function updateAssetCard(asset, decision, eventResult) {
   card.querySelector(".asset-status").textContent = decision ? Core.statusLabel(level) : "Sin analizar";
   const eventText = card.querySelector(".asset-event");
   if (!decision) {
-    eventText.textContent = asset.layer === "guadalhorce" ? "Capa común del sistema Guadalhorce" : "Esperando lectura del IGN";
+    eventText.textContent = asset.layer === "guadalhorce" ? "Raster común del sistema Guadalhorce" : `Raster propio de ${asset.label}`;
   } else {
     eventText.textContent = `Condiciona: ${eventResult.data.event || "evento manual"} · Io ${Core.formatThreshold(eventResult.data.intensity)}`;
   }
@@ -254,7 +298,7 @@ function renderEvents() {
     </tr>`;
   }).join("");
   list.innerHTML = `<table class="event-table">
-    <thead><tr><th>Evento</th><th>UTC</th><th>Magnitud</th><th>Imax IGN</th><th>Io calculada</th><th>Casasola</th><th>Conde</th><th>Guadalhorce</th><th>Guadalteba</th><th>Zona</th></tr></thead>
+    <thead><tr><th>Evento</th><th>UTC</th><th>Magnitud</th><th>Imax IGN</th><th>Io calculada</th>${ASSETS.map((asset) => `<th>${escapeHtml(asset.label)}</th>`).join("")}<th>Zona</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
   for (const button of list.querySelectorAll("[data-event-index]")) {
@@ -285,7 +329,7 @@ function renderDetail() {
   $("detailCoords").textContent = data.lat == null || data.lon == null ? "−" : `${Core.formatNumber(data.lat)}, ${Core.formatNumber(data.lon)}`;
   $("detailZone").textContent = data.zone || "−";
   $("calculationTrace").innerHTML = calculationTraceHtml(result);
-  $("layerResults").innerHTML = ["casasola", "guadalhorce"].map((layerKey) => layerResultHtml(result.layers[layerKey])).join("");
+  $("layerResults").innerHTML = LAYER_KEYS.map((layerKey) => layerResultHtml(result.layers[layerKey])).join("");
 }
 
 function calculationTraceHtml(result) {
@@ -320,29 +364,42 @@ function calculationTraceHtml(result) {
     <article class="calculation-card">
       <div class="calculation-number">2</div>
       <div><h3>Cómo se obtienen las intensidades de los escenarios</h3>
-        <p>No se recalculan mediante otra fórmula. En las coordenadas del epicentro se consultan los polígonos de cada capa:</p>
+        <p>Las coordenadas del epicentro se transforman a ETRS89 / UTM zona 30N y se localiza la celda correspondiente en cada GeoTIFF:</p>
         <ul>
-          <li><code>IntensidadExtraordinaria</code>: umbral de situación extraordinaria.</li>
-          <li><code>Intensidad</code>: umbral de Escenario 0.</li>
-          <li>Si el punto pertenece a varios polígonos anidados, se adopta el <strong>menor umbral</strong> de cada campo.</li>
+          <li><strong>Mapa extraordinario:</strong> valor de la Banda 1 usado como umbral de situación extraordinaria.</li>
+          <li><strong>Mapa de Escenario 0:</strong> valor de la Banda 1 usado como umbral de Escenario 0.</li>
+          <li>Si alguna celda está fuera del raster o contiene <code>NoData</code>, el resultado solicita revisión manual.</li>
         </ul>
-        <p>Finalmente se compara Io con ambos umbrales. El detalle de cada capa aparece debajo.</p>
+        <p>Finalmente se compara Io con los dos valores de Banda 1. El detalle de cada embalse aparece debajo.</p>
       </div>
     </article>`;
 }
 
 function layerResultHtml(decision) {
   const thresholds = decision.thresholds || {};
-  const label = decision.layerKey === "casasola" ? "Casasola" : "Sistema Guadalhorce";
+  const label = layerLabel(decision.layerKey);
   return `<article class="layer-result ${statusClass(decision.level)}">
     <div class="layer-result-head"><h3>${label}</h3>${statusPillInline(decision.level)}</div>
     <div class="threshold-pair">
-      <div><span>Extra · IntensidadExtraordinaria</span><strong>${Core.formatThreshold(thresholds.extra)}</strong></div>
-      <div><span>Escenario 0 · Intensidad</span><strong>${Core.formatThreshold(thresholds.zero)}</strong></div>
+      <div><span>Extraordinario · Banda 1</span><strong>${Core.formatThreshold(thresholds.extra)}</strong></div>
+      <div><span>Escenario 0 · Banda 1</span><strong>${Core.formatThreshold(thresholds.zero)}</strong></div>
     </div>
+    ${rasterCellHtml(thresholds)}
     <p class="decision-equation">${decisionEquation(decision)}</p>
     <ul class="reason-list">${decision.reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}</ul>
   </article>`;
+}
+
+function rasterCellHtml(thresholds) {
+  const extra = thresholds.samples?.extra;
+  const zero = thresholds.samples?.zero;
+  if (!extra && !zero) return "";
+  const cell = (sample) => sample?.row == null || sample?.column == null ? "fuera de cobertura" : `columna ${sample.column}, fila ${sample.row}`;
+  return `<p class="raster-cell">Celdas consultadas · Extraordinario: ${cell(extra)} · Escenario 0: ${cell(zero)}</p>`;
+}
+
+function layerLabel(layerKey) {
+  return DATASETS?.[layerKey]?.label || Core.LAYERS[layerKey]?.label || layerKey;
 }
 
 function decisionEquation(decision) {
@@ -411,14 +468,15 @@ function buildReportHtml(result) {
         : distanceKm <= actionRadiusKm
           ? `Sí: d ≤ ${formatDistance(actionRadiusKm)}`
           : `No: d > ${formatDistance(actionRadiusKm)}`;
-    return `<tr><td><strong>${escapeHtml(asset.label)}</strong><br><span class="subtle">MITECO ${asset.mitecoCode}</span></td><td>${formatDistance(distanceKm)}</td><td>${escapeHtml(actionCheck)}</td><td><span class="pill ${statusClass(decision.level)}">${escapeHtml(Core.statusLabel(decision.level))}</span></td><td>${escapeHtml(decisionEquation(decision))}</td></tr>`;
+    const assetCode = asset.mitecoCode ? `<br><span class="subtle">MITECO ${asset.mitecoCode}</span>` : "";
+    return `<tr><td><strong>${escapeHtml(asset.label)}</strong>${assetCode}</td><td>${formatDistance(distanceKm)}</td><td>${escapeHtml(actionCheck)}</td><td><span class="pill ${statusClass(decision.level)}">${escapeHtml(Core.statusLabel(decision.level))}</span></td><td>${escapeHtml(decisionEquation(decision))}</td></tr>`;
   }).join("");
   const distanceDetails = distances.map(({ asset, distanceKm }) => `<li><strong>${escapeHtml(asset.label)}:</strong> φ₂ = ${Core.formatNumber(asset.lat)}°, λ₂ = ${Core.formatNumber(asset.lon)}° → <strong>d = ${formatDistance(distanceKm)}</strong>.</li>`).join("");
   const icoldRows = [...Core.ICOLD_ACTION_RADII].reverse().map((row) => `<tr><td>&gt; ${Core.formatNumber(row.magnitudeAbove)}</td><td>${formatDistance(row.distanceKm)}</td></tr>`).join("");
-  const layers = ["casasola", "guadalhorce"].map((layerKey) => reportLayerHtml(result.layers[layerKey])).join("");
-  const reportMaps = ["casasola", "guadalhorce"].map((layerKey) => reportMapHtml(layerKey, data)).join("");
+  const layers = LAYER_KEYS.map((layerKey) => reportLayerHtml(result.layers[layerKey])).join("");
+  const reportMaps = LAYER_KEYS.map((layerKey) => reportMapHtml(layerKey, data)).join("");
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Informe sísmico · ${escapeHtml(data.event || "Evento")}</title><style>
-    :root{--ink:#153237;--muted:#61767a;--line:#d9e3e1;--teal:#0d736e;--ordinary:#247047;--extra:#9b5b00;--zero:#b42318;--unknown:#617079}*{box-sizing:border-box}body{margin:0;background:#eef3f2;color:var(--ink);font-family:Arial,sans-serif;line-height:1.45}.page{max-width:1100px;margin:28px auto;padding:38px;background:#fff;box-shadow:0 8px 30px #1734381c}header{display:flex;justify-content:space-between;gap:24px;padding-bottom:22px;border-bottom:3px solid var(--teal)}h1{margin:0;font-size:27px}h2{margin:28px 0 12px;font-size:17px}h3{margin:0 0 10px;font-size:15px}.meta,.subtle{color:var(--muted);font-size:11px}.meta{text-align:right}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric,.card{padding:14px;border:1px solid var(--line);border-radius:10px}.metric span{display:block;color:var(--muted);font-size:11px}.metric strong{display:block;margin-top:6px;font-size:14px}.report-maps{display:grid;grid-template-columns:1fr 1fr;gap:14px}.report-map{margin:0;padding:10px;border:1px solid var(--line);border-radius:10px;background:#f4f8f7;break-inside:avoid}.report-map svg{display:block;width:100%;height:auto;border-radius:7px;background:#b8c7c2}.report-map figcaption{padding:8px 3px 1px;font-size:11px}.calculation{padding:16px 18px;border-left:4px solid var(--teal);background:#f4f8f7}.calculation p,.calculation li{margin:6px 0;font-size:13px}.magnitude-rules{margin-top:12px;padding:11px;border:1px solid var(--line);border-radius:8px;background:#fff}.magnitude-rules .rueda-note{padding-top:8px;border-top:1px solid var(--line)}.magnitude-rules a{color:var(--teal)}.formula{padding:9px 11px;border-radius:7px;background:#e4efed;font-family:Consolas,monospace;font-size:12px}code{background:#e4efed;padding:2px 4px;border-radius:4px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{padding:9px;border:1px solid var(--line);text-align:left;vertical-align:top}th{background:#f3f7f6}.pill{display:inline-block;padding:4px 8px;border-radius:20px;font-weight:700;white-space:nowrap}.ordinary{color:var(--ordinary);background:#e8f4ec}.extra{color:var(--extra);background:#fff0c8}.zero{color:var(--zero);background:#fde9e7}.unknown{color:var(--unknown);background:#edf1f2}.layers{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card p,.card li{font-size:12px}.thresholds{display:flex;gap:18px;margin:10px 0}.thresholds span{color:var(--muted);font-size:11px}.thresholds strong{display:block;color:var(--ink);font-size:15px}.icold-layout{display:grid;grid-template-columns:1.4fr .6fr;gap:14px}.source{color:var(--muted);font-size:10px}.notice{margin-top:28px;padding:14px;background:#fff8e7;color:#66542d;font-size:11px}.toolbar{max-width:1100px;margin:20px auto 0;text-align:right}.toolbar button{padding:10px 16px;border:0;border-radius:8px;background:var(--teal);color:#fff;font-weight:700;cursor:pointer}@media(max-width:700px){.page{margin:0;padding:22px}.grid,.layers,.report-maps{grid-template-columns:1fr}.icold-layout{grid-template-columns:1fr}header{display:block}.meta{text-align:left;margin-top:10px}.distance-table{display:block;overflow-x:auto}}@media print{body{background:#fff}.toolbar{display:none}.page{max-width:none;margin:0;padding:0;box-shadow:none}thead{display:table-header-group}.card,.calculation,.report-map{break-inside:avoid}}
+    :root{--ink:#153237;--muted:#61767a;--line:#d9e3e1;--teal:#0d736e;--ordinary:#247047;--extra:#9b5b00;--zero:#b42318;--unknown:#617079}*{box-sizing:border-box}body{margin:0;background:#eef3f2;color:var(--ink);font-family:Arial,sans-serif;line-height:1.45}.page{max-width:1100px;margin:28px auto;padding:38px;background:#fff;box-shadow:0 8px 30px #1734381c}header{display:flex;justify-content:space-between;gap:24px;padding-bottom:22px;border-bottom:3px solid var(--teal)}h1{margin:0;font-size:27px}h2{margin:28px 0 12px;font-size:17px}h3{margin:0 0 10px;font-size:15px}.meta,.subtle{color:var(--muted);font-size:11px}.meta{text-align:right}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric,.card{padding:14px;border:1px solid var(--line);border-radius:10px}.metric span{display:block;color:var(--muted);font-size:11px}.metric strong{display:block;margin-top:6px;font-size:14px}.report-maps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.report-map{margin:0;padding:10px;border:1px solid var(--line);border-radius:10px;background:#f4f8f7;break-inside:avoid}.report-map svg{display:block;width:100%;height:auto;border-radius:7px;background:#b8c7c2}.report-map figcaption{padding:8px 3px 1px;font-size:11px}.calculation{padding:16px 18px;border-left:4px solid var(--teal);background:#f4f8f7}.calculation p,.calculation li{margin:6px 0;font-size:13px}.magnitude-rules{margin-top:12px;padding:11px;border:1px solid var(--line);border-radius:8px;background:#fff}.magnitude-rules .rueda-note{padding-top:8px;border-top:1px solid var(--line)}.magnitude-rules a{color:var(--teal)}.formula{padding:9px 11px;border-radius:7px;background:#e4efed;font-family:Consolas,monospace;font-size:12px}code{background:#e4efed;padding:2px 4px;border-radius:4px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{padding:9px;border:1px solid var(--line);text-align:left;vertical-align:top}th{background:#f3f7f6}.pill{display:inline-block;padding:4px 8px;border-radius:20px;font-weight:700;white-space:nowrap}.ordinary{color:var(--ordinary);background:#e8f4ec}.extra{color:var(--extra);background:#fff0c8}.zero{color:var(--zero);background:#fde9e7}.unknown{color:var(--unknown);background:#edf1f2}.layers{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.card p,.card li{font-size:12px}.thresholds{display:flex;gap:18px;margin:10px 0}.thresholds span{color:var(--muted);font-size:11px}.thresholds strong{display:block;color:var(--ink);font-size:15px}.icold-layout{display:grid;grid-template-columns:1.4fr .6fr;gap:14px}.source{color:var(--muted);font-size:10px}.notice{margin-top:28px;padding:14px;background:#fff8e7;color:#66542d;font-size:11px}.toolbar{max-width:1100px;margin:20px auto 0;text-align:right}.toolbar button{padding:10px 16px;border:0;border-radius:8px;background:var(--teal);color:#fff;font-weight:700;cursor:pointer}@media(max-width:700px){.page{margin:0;padding:22px}.grid,.layers,.report-maps{grid-template-columns:1fr}.icold-layout{grid-template-columns:1fr}header{display:block}.meta{text-align:left;margin-top:10px}.distance-table{display:block;overflow-x:auto}}@media print{body{background:#fff}.toolbar{display:none}.page{max-width:none;margin:0;padding:0;box-shadow:none}thead{display:table-header-group}.card,.calculation,.report-map{break-inside:avoid}}
   </style></head><body><div class="toolbar"><button type="button" onclick="window.print()">Imprimir / Guardar como PDF</button></div><main class="page">
     <header><div><p style="margin:0;color:var(--teal);font-size:12px;font-weight:700">SEGURIDAD DE PRESAS · DHCMA</p><h1>Informe de evaluación sísmica</h1></div><div class="meta">Generado el ${escapeHtml(generated)}<br>Aplicación Alerta sísmica por embalse</div></header>
     <h2>Evento seleccionado</h2><div class="grid">
@@ -456,20 +514,22 @@ function magnitudeRulesHtml() {
 
 function reportLayerHtml(decision) {
   const thresholds = decision.thresholds || {};
-  const label = decision.layerKey === "casasola" ? "Casasola" : "Sistema Guadalhorce";
-  return `<article class="card"><h3>${label}</h3><p>Consulta espacial en las coordenadas del epicentro. Polígonos coincidentes: <strong>${thresholds.matches ?? 0}</strong>.</p><p>Se obtiene <strong>Extraordinaria = mínimo de IntensidadExtraordinaria</strong> y <strong>Escenario 0 = mínimo de Intensidad</strong> entre los polígonos coincidentes.</p><div class="thresholds"><div><span>Extraordinaria</span><strong>${Core.formatThreshold(thresholds.extra)}</strong></div><div><span>Escenario 0</span><strong>${Core.formatThreshold(thresholds.zero)}</strong></div></div><p class="formula">${escapeHtml(decisionEquation(decision))}</p><ul>${decision.reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}</ul></article>`;
+  const label = layerLabel(decision.layerKey);
+  const extraCell = thresholds.samples?.extra;
+  const zeroCell = thresholds.samples?.zero;
+  const cellText = (sample) => sample?.row == null || sample?.column == null ? "fuera de cobertura" : `columna ${sample.column}, fila ${sample.row}`;
+  return `<article class="card"><h3>${label}</h3><p>Consulta directa de la Banda 1 en las coordenadas del epicentro, transformadas a ETRS89 / UTM 30N.</p><p>Celda extraordinaria: <strong>${cellText(extraCell)}</strong>.<br>Celda de Escenario 0: <strong>${cellText(zeroCell)}</strong>.</p><div class="thresholds"><div><span>Extraordinaria · Banda 1</span><strong>${Core.formatThreshold(thresholds.extra)}</strong></div><div><span>Escenario 0 · Banda 1</span><strong>${Core.formatThreshold(thresholds.zero)}</strong></div></div><p class="formula">${escapeHtml(decisionEquation(decision))}</p><ul>${decision.reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}</ul></article>`;
 }
 
 function reportMapHtml(layerKey, data) {
-  const collection = DATASETS[layerKey];
-  const label = layerKey === "casasola" ? "Casasola" : "Sistema Guadalhorce";
-  const stroke = layerKey === "casasola" ? "#db5d3f" : "#177e89";
+  const collection = ISOLINES[layerKey];
+  const label = layerLabel(layerKey);
+  const stroke = layerColor(layerKey);
   const paths = (collection?.features || []).map((feature) => {
     const pathData = geometryToPath(feature.geometry);
     if (!pathData) return "";
-    const extra = feature.properties?.IntensidadExtraordinaria;
-    const zero = feature.properties?.Intensidad;
-    return `<path d="${escapeHtml(pathData)}" fill="none" stroke="${stroke}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><title>Extra ${escapeHtml(extra)} · Escenario 0 ${escapeHtml(zero)}</title></path>`;
+    const intensity = feature.properties?.Intensidad;
+    return `<path d="${escapeHtml(pathData)}" fill="none" stroke="${stroke}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><title>Isolínea ${escapeHtml(intensity)}</title></path>`;
   }).join("");
   const point = data.lat == null || data.lon == null ? null : latLonToPixel(data.lat, data.lon);
   const marker = point && point.x >= 0 && point.x <= MAP.width && point.y >= 0 && point.y <= MAP.height
@@ -477,7 +537,11 @@ function reportMapHtml(layerKey, data) {
     : "";
   const mapBaseUrl = new URL("assets/map-base.jpg", location.href).href;
   const orthophotoUrl = pnoaReportUrl();
-  return `<figure class="report-map"><svg viewBox="0 0 ${MAP.width} ${MAP.height}" role="img" aria-label="Ortofoto PNOA con la capa ${escapeHtml(label)} y el epicentro"><image href="${escapeHtml(mapBaseUrl)}" x="0" y="0" width="${MAP.width}" height="${MAP.height}" preserveAspectRatio="none"/><image href="${escapeHtml(orthophotoUrl)}" x="0" y="0" width="${MAP.width}" height="${MAP.height}" preserveAspectRatio="none" opacity="0.9"/>${paths}${marker}</svg><figcaption><strong>${escapeHtml(label)}</strong> · ${escapeHtml(data.event || "Evento")} · Io ${Core.formatThreshold(data.intensity)}. El punto oscuro señala el epicentro. Base: <a href="https://pnoa.ign.es/pnoa-imagen/ortofotos-pnoa-maxima-actualidad" target="_blank" rel="noreferrer">Ortofoto PNOA máxima actualidad, IGN-CNIG</a>.</figcaption></figure>`;
+  return `<figure class="report-map"><svg viewBox="0 0 ${MAP.width} ${MAP.height}" role="img" aria-label="Ortofoto PNOA con las isolíneas de ${escapeHtml(label)} y el epicentro"><image href="${escapeHtml(mapBaseUrl)}" x="0" y="0" width="${MAP.width}" height="${MAP.height}" preserveAspectRatio="none"/><image href="${escapeHtml(orthophotoUrl)}" x="0" y="0" width="${MAP.width}" height="${MAP.height}" preserveAspectRatio="none" opacity="0.9"/>${paths}${marker}</svg><figcaption><strong>${escapeHtml(label)}</strong> · ${escapeHtml(data.event || "Evento")} · Io ${Core.formatThreshold(data.intensity)}. Los valores de cálculo proceden de la Banda 1 de los GeoTIFF; las líneas se muestran como referencia visual. Base: <a href="https://pnoa.ign.es/pnoa-imagen/ortofotos-pnoa-maxima-actualidad" target="_blank" rel="noreferrer">Ortofoto PNOA máxima actualidad, IGN-CNIG</a>.</figcaption></figure>`;
+}
+
+function layerColor(layerKey) {
+  return { casasola: "#db5d3f", guadalhorce: "#177e89", limonero: "#7656a8" }[layerKey] || "#177e89";
 }
 
 function pnoaReportUrl() {
@@ -530,30 +594,36 @@ function renderVectorOverlay() {
   const svg = $("vectorOverlay");
   svg.setAttribute("viewBox", `0 0 ${MAP.width} ${MAP.height}`);
   svg.replaceChildren();
-  const collection = DATASETS[state.activeLayer];
+  const collection = ISOLINES[state.activeLayer];
   for (const feature of collection?.features || []) {
     const pathData = geometryToPath(feature.geometry);
     if (!pathData) continue;
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     path.setAttribute("d", pathData);
     path.setAttribute("class", `vector-zone ${state.activeLayer}`);
-    const label = `Extra ${feature.properties.IntensidadExtraordinaria} / E0 ${feature.properties.Intensidad}`;
+    const label = `Isolínea de intensidad ${feature.properties.Intensidad}`;
     path.setAttribute("aria-label", label);
     svg.appendChild(path);
   }
 }
 
 function geometryToPath(geometry) {
-  const polygons = geometry?.type === "Polygon" ? [geometry.coordinates] : geometry?.type === "MultiPolygon" ? geometry.coordinates : [];
+  const lines = geometry?.type === "LineString"
+    ? [geometry.coordinates]
+    : geometry?.type === "MultiLineString"
+      ? geometry.coordinates
+      : geometry?.type === "Polygon"
+        ? geometry.coordinates
+        : geometry?.type === "MultiPolygon"
+          ? geometry.coordinates.flat()
+          : [];
   const parts = [];
-  for (const polygon of polygons) {
-    for (const ring of polygon) {
-      const commands = ring.map(([lon, lat], index) => {
-        const point = latLonToPixel(lat, lon);
-        return `${index ? "L" : "M"}${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
-      });
-      if (commands.length) parts.push(`${commands.join("")}Z`);
-    }
+  for (const line of lines) {
+    const commands = line.map(([lon, lat], index) => {
+      const point = latLonToPixel(lat, lon);
+      return `${index ? "L" : "M"}${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
+    });
+    if (commands.length) parts.push(commands.join(""));
   }
   return parts.join("");
 }
@@ -581,7 +651,7 @@ function renderMapMarkers() {
       const tip = $("coordTip");
       tip.textContent = tooltipText;
       tip.classList.add("visible", "event-tip");
-      positionMapTip(event, tip, 330, 122);
+      positionMapTip(event, tip, 350, 150);
     };
     marker.addEventListener("pointerenter", showEventTip);
     marker.addEventListener("pointermove", showEventTip);
@@ -612,7 +682,8 @@ function renderMapMarkers() {
 function eventMarkerTooltip(result) {
   const casasola = result.layers?.casasola?.thresholds || {};
   const guadalhorce = result.layers?.guadalhorce?.thresholds || {};
-  return `${result.data.event || "Evento"} · Io calculada ${Core.formatThreshold(result.data.intensity)}\nCasasola: I extraordinaria ${Core.formatThreshold(casasola.extra)} · I Escenario 0 ${Core.formatThreshold(casasola.zero)}\nSistema Guadalhorce: I extraordinaria ${Core.formatThreshold(guadalhorce.extra)} · I Escenario 0 ${Core.formatThreshold(guadalhorce.zero)}`;
+  const limonero = result.layers?.limonero?.thresholds || {};
+  return `${result.data.event || "Evento"} · Io calculada ${Core.formatThreshold(result.data.intensity)}\nCasasola: I extraordinaria ${Core.formatThreshold(casasola.extra)} · I Escenario 0 ${Core.formatThreshold(casasola.zero)}\nSistema Guadalhorce: I extraordinaria ${Core.formatThreshold(guadalhorce.extra)} · I Escenario 0 ${Core.formatThreshold(guadalhorce.zero)}\nLimonero: I extraordinaria ${Core.formatThreshold(limonero.extra)} · I Escenario 0 ${Core.formatThreshold(limonero.zero)}`;
 }
 
 function initLayerSwitch() {
@@ -621,7 +692,7 @@ function initLayerSwitch() {
       state.activeLayer = button.dataset.layer;
       document.querySelectorAll("[data-layer]").forEach((item) => item.classList.toggle("active", item === button));
       renderVectorOverlay();
-      const label = state.activeLayer === "casasola" ? "Curvas Casasola" : "Curvas Sistema Guadalhorce";
+      const label = `Isolíneas ${layerLabel(state.activeLayer)}`;
       $("layerLegend").innerHTML = `<i class="legend-line ${state.activeLayer}"></i> ${label}`;
     });
   }
@@ -701,7 +772,7 @@ function updateCoordinateTip(event) {
   }
   const geo = pixelToLatLon(px, py);
   const thresholds = Core.readThresholds(state.activeLayer, geo.lat, geo.lon, DATASETS);
-  tip.textContent = `Lat ${geo.lat.toFixed(4)} · Lon ${geo.lon.toFixed(4)} · Extra ${Core.formatThreshold(thresholds.extra)} · E0 ${Core.formatThreshold(thresholds.zero)}`;
+  tip.textContent = `Lat ${geo.lat.toFixed(4)} · Lon ${geo.lon.toFixed(4)} · Banda 1 Extra ${Core.formatThreshold(thresholds.extra)} · Banda 1 E0 ${Core.formatThreshold(thresholds.zero)}`;
   positionMapTip(event, tip, 280, 58);
   tip.classList.add("visible");
 }
