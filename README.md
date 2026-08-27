@@ -60,7 +60,7 @@ La consola mostrará la URL del ordenador y las URLs para un móvil conectado a 
 
 El workflow actualiza `ign-terremotos.html` cada 15 minutos. El service worker no guarda ese fichero de forma persistente.
 
-Si el móvil tenía instalada una versión anterior, abre una vez la dirección de GitHub Pages añadiendo `?v=14`. La versión actual mostrará `Motor raster v5.0.1` y, desde entonces, las navegaciones usarán red primero para comprobar actualizaciones.
+Si el móvil tenía instalada una versión anterior, abre una vez la dirección de GitHub Pages añadiendo `?v=15`. La versión actual mostrará `Motor raster v5.1` y, desde entonces, las navegaciones usarán red primero para comprobar actualizaciones.
 
 La versión 4.3 selecciona inicialmente el evento con la mayor intensidad Io disponible. Desde el detalle puede generarse un informe completo del evento seleccionado y abrirse para imprimirlo o guardarlo como PDF.
 
@@ -79,6 +79,8 @@ La versión 4.9 incorpora un manual de usuario dentro de la aplicación. El bot�
 La versión 5.0 sustituye las capas poligonales anteriores por seis mapas GeoTIFF. Los umbrales se obtienen leyendo la Banda 1 de la celda correspondiente a las coordenadas del sismo. También incorpora Limonero al resumen, la tabla, el mapa, el detalle y el informe.
 
 La versión 5.0.1 admite tanto la estructura recomendada `assets/rasters/` como los archivos raster e isolíneas colocados en la raíz por el cargador web de GitHub. Los datos descargados durante el primer uso quedan disponibles en la caché de la PWA.
+
+La versión 5.1 añade a los tres mapas del informe el sombreado de la Banda 1 del escenario extraordinario sobre la ortofoto. El rojo cambia de claro a oscuro según el condicionamiento del mapa; las isolíneas y el epicentro permanecen visibles por encima. Esta representación es únicamente informativa y no modifica los cálculos.
 
 ## Archivos de datos
 

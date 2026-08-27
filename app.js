@@ -25,6 +25,10 @@ const MAP = {
   pxDegY: 156.7273,
 };
 
+const REPORT_RASTER_WIDTH = 700;
+const REPORT_RASTER_HEIGHT = Math.round(REPORT_RASTER_WIDTH * MAP.height / MAP.width);
+const REPORT_RASTER_CACHE = new Map();
+
 const SAMPLE_TEXT = `EVENTO: es2026mnvfi
 HORA LOCAL(*): 28/06/2026 08:59:40
 HORA UTC: 28/06/2026 06:59:40
@@ -439,8 +443,8 @@ function generateSelectedReport() {
     setNotice("Selecciona un evento antes de generar el informe.", true);
     return;
   }
-  const html = buildReportHtml(state.selected);
   const reportWindow = window.open("", "_blank");
+  const html = buildReportHtml(state.selected);
   if (reportWindow) {
     reportWindow.document.open();
     reportWindow.document.write(html);
@@ -484,7 +488,7 @@ function buildReportHtml(result) {
   const layers = LAYER_KEYS.map((layerKey) => reportLayerHtml(result.layers[layerKey])).join("");
   const reportMaps = LAYER_KEYS.map((layerKey) => reportMapHtml(layerKey, data)).join("");
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Informe sísmico · ${escapeHtml(data.event || "Evento")}</title><style>
-    :root{--ink:#153237;--muted:#61767a;--line:#d9e3e1;--teal:#0d736e;--ordinary:#247047;--extra:#9b5b00;--zero:#b42318;--unknown:#617079}*{box-sizing:border-box}body{margin:0;background:#eef3f2;color:var(--ink);font-family:Arial,sans-serif;line-height:1.45}.page{max-width:1100px;margin:28px auto;padding:38px;background:#fff;box-shadow:0 8px 30px #1734381c}header{display:flex;justify-content:space-between;gap:24px;padding-bottom:22px;border-bottom:3px solid var(--teal)}h1{margin:0;font-size:27px}h2{margin:28px 0 12px;font-size:17px}h3{margin:0 0 10px;font-size:15px}.meta,.subtle{color:var(--muted);font-size:11px}.meta{text-align:right}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric,.card{padding:14px;border:1px solid var(--line);border-radius:10px}.metric span{display:block;color:var(--muted);font-size:11px}.metric strong{display:block;margin-top:6px;font-size:14px}.report-maps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.report-map{margin:0;padding:10px;border:1px solid var(--line);border-radius:10px;background:#f4f8f7;break-inside:avoid}.report-map svg{display:block;width:100%;height:auto;border-radius:7px;background:#b8c7c2}.report-map figcaption{padding:8px 3px 1px;font-size:11px}.calculation{padding:16px 18px;border-left:4px solid var(--teal);background:#f4f8f7}.calculation p,.calculation li{margin:6px 0;font-size:13px}.magnitude-rules{margin-top:12px;padding:11px;border:1px solid var(--line);border-radius:8px;background:#fff}.magnitude-rules .rueda-note{padding-top:8px;border-top:1px solid var(--line)}.magnitude-rules a{color:var(--teal)}.formula{padding:9px 11px;border-radius:7px;background:#e4efed;font-family:Consolas,monospace;font-size:12px}code{background:#e4efed;padding:2px 4px;border-radius:4px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{padding:9px;border:1px solid var(--line);text-align:left;vertical-align:top}th{background:#f3f7f6}.pill{display:inline-block;padding:4px 8px;border-radius:20px;font-weight:700;white-space:nowrap}.ordinary{color:var(--ordinary);background:#e8f4ec}.extra{color:var(--extra);background:#fff0c8}.zero{color:var(--zero);background:#fde9e7}.unknown{color:var(--unknown);background:#edf1f2}.layers{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.card p,.card li{font-size:12px}.thresholds{display:flex;gap:18px;margin:10px 0}.thresholds span{color:var(--muted);font-size:11px}.thresholds strong{display:block;color:var(--ink);font-size:15px}.icold-layout{display:grid;grid-template-columns:1.4fr .6fr;gap:14px}.source{color:var(--muted);font-size:10px}.notice{margin-top:28px;padding:14px;background:#fff8e7;color:#66542d;font-size:11px}.toolbar{max-width:1100px;margin:20px auto 0;text-align:right}.toolbar button{padding:10px 16px;border:0;border-radius:8px;background:var(--teal);color:#fff;font-weight:700;cursor:pointer}@media(max-width:700px){.page{margin:0;padding:22px}.grid,.layers,.report-maps{grid-template-columns:1fr}.icold-layout{grid-template-columns:1fr}header{display:block}.meta{text-align:left;margin-top:10px}.distance-table{display:block;overflow-x:auto}}@media print{body{background:#fff}.toolbar{display:none}.page{max-width:none;margin:0;padding:0;box-shadow:none}thead{display:table-header-group}.card,.calculation,.report-map{break-inside:avoid}}
+    :root{--ink:#153237;--muted:#61767a;--line:#d9e3e1;--teal:#0d736e;--ordinary:#247047;--extra:#9b5b00;--zero:#b42318;--unknown:#617079}*{box-sizing:border-box}body{margin:0;background:#eef3f2;color:var(--ink);font-family:Arial,sans-serif;line-height:1.45}.page{max-width:1100px;margin:28px auto;padding:38px;background:#fff;box-shadow:0 8px 30px #1734381c}header{display:flex;justify-content:space-between;gap:24px;padding-bottom:22px;border-bottom:3px solid var(--teal)}h1{margin:0;font-size:27px}h2{margin:28px 0 12px;font-size:17px}h3{margin:0 0 10px;font-size:15px}.meta,.subtle{color:var(--muted);font-size:11px}.meta{text-align:right}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric,.card{padding:14px;border:1px solid var(--line);border-radius:10px}.metric span{display:block;color:var(--muted);font-size:11px}.metric strong{display:block;margin-top:6px;font-size:14px}.report-maps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.report-map{margin:0;padding:10px;border:1px solid var(--line);border-radius:10px;background:#f4f8f7;break-inside:avoid}.report-map svg{display:block;width:100%;height:auto;border-radius:7px;background:#b8c7c2}.report-map figcaption{padding:8px 3px 1px;font-size:11px}.raster-legend{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:6px;margin:7px 3px 2px;color:var(--muted);font-size:9px}.raster-legend i{height:7px;border-radius:8px;background:linear-gradient(90deg,#fee6d2,#f16b5c,#99002d)}.raster-note{display:block;margin-top:5px;color:var(--muted);font-size:9px}.calculation{padding:16px 18px;border-left:4px solid var(--teal);background:#f4f8f7}.calculation p,.calculation li{margin:6px 0;font-size:13px}.magnitude-rules{margin-top:12px;padding:11px;border:1px solid var(--line);border-radius:8px;background:#fff}.magnitude-rules .rueda-note{padding-top:8px;border-top:1px solid var(--line)}.magnitude-rules a{color:var(--teal)}.formula{padding:9px 11px;border-radius:7px;background:#e4efed;font-family:Consolas,monospace;font-size:12px}code{background:#e4efed;padding:2px 4px;border-radius:4px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{padding:9px;border:1px solid var(--line);text-align:left;vertical-align:top}th{background:#f3f7f6}.pill{display:inline-block;padding:4px 8px;border-radius:20px;font-weight:700;white-space:nowrap}.ordinary{color:var(--ordinary);background:#e8f4ec}.extra{color:var(--extra);background:#fff0c8}.zero{color:var(--zero);background:#fde9e7}.unknown{color:var(--unknown);background:#edf1f2}.layers{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.card p,.card li{font-size:12px}.thresholds{display:flex;gap:18px;margin:10px 0}.thresholds span{color:var(--muted);font-size:11px}.thresholds strong{display:block;color:var(--ink);font-size:15px}.icold-layout{display:grid;grid-template-columns:1.4fr .6fr;gap:14px}.source{color:var(--muted);font-size:10px}.notice{margin-top:28px;padding:14px;background:#fff8e7;color:#66542d;font-size:11px}.toolbar{max-width:1100px;margin:20px auto 0;text-align:right}.toolbar button{padding:10px 16px;border:0;border-radius:8px;background:var(--teal);color:#fff;font-weight:700;cursor:pointer}@media(max-width:700px){.page{margin:0;padding:22px}.grid,.layers,.report-maps{grid-template-columns:1fr}.icold-layout{grid-template-columns:1fr}header{display:block}.meta{text-align:left;margin-top:10px}.distance-table{display:block;overflow-x:auto}}@media print{body{background:#fff}.toolbar{display:none}.page{max-width:none;margin:0;padding:0;box-shadow:none}thead{display:table-header-group}.card,.calculation,.report-map{break-inside:avoid}}
   </style></head><body><div class="toolbar"><button type="button" onclick="window.print()">Imprimir / Guardar como PDF</button></div><main class="page">
     <header><div><p style="margin:0;color:var(--teal);font-size:12px;font-weight:700">SEGURIDAD DE PRESAS · DHCMA</p><h1>Informe de evaluación sísmica</h1></div><div class="meta">Generado el ${escapeHtml(generated)}<br>Aplicación Alerta sísmica por embalse</div></header>
     <h2>Evento seleccionado</h2><div class="grid">
@@ -533,6 +537,11 @@ function reportMapHtml(layerKey, data) {
   const collection = ISOLINES[layerKey];
   const label = layerLabel(layerKey);
   const stroke = layerColor(layerKey);
+  const raster = DATASETS?.[layerKey]?.extra;
+  const rasterDataUrl = reportExtraRasterDataUrl(layerKey);
+  const rasterOverlay = rasterDataUrl
+    ? `<image href="${escapeHtml(rasterDataUrl)}" x="0" y="0" width="${MAP.width}" height="${MAP.height}" preserveAspectRatio="none"/>`
+    : "";
   const paths = (collection?.features || []).map((feature) => {
     const pathData = geometryToPath(feature.geometry);
     if (!pathData) return "";
@@ -545,7 +554,72 @@ function reportMapHtml(layerKey, data) {
     : "";
   const mapBaseUrl = new URL("assets/map-base.jpg", location.href).href;
   const orthophotoUrl = pnoaReportUrl();
-  return `<figure class="report-map"><svg viewBox="0 0 ${MAP.width} ${MAP.height}" role="img" aria-label="Ortofoto PNOA con las isolíneas de ${escapeHtml(label)} y el epicentro"><image href="${escapeHtml(mapBaseUrl)}" x="0" y="0" width="${MAP.width}" height="${MAP.height}" preserveAspectRatio="none"/><image href="${escapeHtml(orthophotoUrl)}" x="0" y="0" width="${MAP.width}" height="${MAP.height}" preserveAspectRatio="none" opacity="0.9"/>${paths}${marker}</svg><figcaption><strong>${escapeHtml(label)}</strong> · ${escapeHtml(data.event || "Evento")} · Io ${Core.formatThreshold(data.intensity)}. Los valores de cálculo proceden de la Banda 1 de los GeoTIFF; las líneas se muestran como referencia visual. Base: <a href="https://pnoa.ign.es/pnoa-imagen/ortofotos-pnoa-maxima-actualidad" target="_blank" rel="noreferrer">Ortofoto PNOA máxima actualidad, IGN-CNIG</a>.</figcaption></figure>`;
+  const legend = raster
+    ? `<div class="raster-legend"><span>I extraordinaria alta · ${Core.formatThreshold(raster.maximum)}</span><i></i><span>${Core.formatThreshold(raster.minimum)} · I extraordinaria baja</span></div><small class="raster-note">Rojo más oscuro: menor intensidad epicentral necesaria para alcanzar la situación extraordinaria.</small>`
+    : "";
+  return `<figure class="report-map"><svg viewBox="0 0 ${MAP.width} ${MAP.height}" role="img" aria-label="Ortofoto PNOA, intensidad extraordinaria, isolíneas de ${escapeHtml(label)} y epicentro"><image href="${escapeHtml(mapBaseUrl)}" x="0" y="0" width="${MAP.width}" height="${MAP.height}" preserveAspectRatio="none"/><image href="${escapeHtml(orthophotoUrl)}" x="0" y="0" width="${MAP.width}" height="${MAP.height}" preserveAspectRatio="none" opacity="0.9"/>${rasterOverlay}${paths}${marker}</svg>${legend}<figcaption><strong>${escapeHtml(label)}</strong> · ${escapeHtml(data.event || "Evento")} · Io ${Core.formatThreshold(data.intensity)}. El sombreado rojo representa la Banda 1 del escenario extraordinario; las isolíneas y el epicentro son información visual. Los cálculos siguen usando exclusivamente el valor de la celda del GeoTIFF. Base: <a href="https://pnoa.ign.es/pnoa-imagen/ortofotos-pnoa-maxima-actualidad" target="_blank" rel="noreferrer">Ortofoto PNOA máxima actualidad, IGN-CNIG</a>.</figcaption></figure>`;
+}
+
+function reportExtraRasterDataUrl(layerKey) {
+  if (REPORT_RASTER_CACHE.has(layerKey)) return REPORT_RASTER_CACHE.get(layerKey);
+  const raster = DATASETS?.[layerKey]?.extra;
+  if (!raster?.values) return "";
+  const canvas = document.createElement("canvas");
+  canvas.width = REPORT_RASTER_WIDTH;
+  canvas.height = REPORT_RASTER_HEIGHT;
+  const context = canvas.getContext("2d");
+  if (!context) return "";
+  const image = context.createImageData(canvas.width, canvas.height);
+  const longitudeSpan = MAP.east - MAP.west;
+  const latitudeSpan = MAP.north - MAP.south;
+  for (let y = 0; y < canvas.height; y += 1) {
+    const lat = MAP.north - ((y + 0.5) / canvas.height) * latitudeSpan;
+    for (let x = 0; x < canvas.width; x += 1) {
+      const lon = MAP.west + ((x + 0.5) / canvas.width) * longitudeSpan;
+      const value = rasterValueAtCoordinates(raster, lat, lon);
+      if (value == null) continue;
+      const color = extraordinaryRasterColor(value, raster.minimum, raster.maximum);
+      const offset = (y * canvas.width + x) * 4;
+      image.data[offset] = color[0];
+      image.data[offset + 1] = color[1];
+      image.data[offset + 2] = color[2];
+      image.data[offset + 3] = color[3];
+    }
+  }
+  context.putImageData(image, 0, 0);
+  const dataUrl = canvas.toDataURL("image/png");
+  REPORT_RASTER_CACHE.set(layerKey, dataUrl);
+  return dataUrl;
+}
+
+function rasterValueAtCoordinates(raster, lat, lon) {
+  const projected = Core.wgs84ToUtm30(lat, lon);
+  const transform = raster?.geoTransform;
+  if (!projected || !raster?.values || !Array.isArray(transform) || transform.length !== 6) return null;
+  const determinant = transform[1] * transform[5] - transform[2] * transform[4];
+  if (!Number.isFinite(determinant) || determinant === 0) return null;
+  const deltaX = projected.x - transform[0];
+  const deltaY = projected.y - transform[3];
+  const column = Math.floor((transform[5] * deltaX - transform[2] * deltaY) / determinant);
+  const row = Math.floor((-transform[4] * deltaX + transform[1] * deltaY) / determinant);
+  if (column < 0 || column >= raster.width || row < 0 || row >= raster.height) return null;
+  const value = raster.values[row * raster.width + column];
+  if (!Number.isFinite(value) || Math.abs(value) >= 3.4e38 || value === Math.fround(raster.noData)) return null;
+  return value;
+}
+
+function extraordinaryRasterColor(value, minimum, maximum) {
+  const span = Math.max(0.000001, maximum - minimum);
+  const conditioning = Math.max(0, Math.min(1, (maximum - value) / span));
+  const strength = Math.sqrt(conditioning);
+  const light = [254, 230, 210];
+  const dark = [153, 0, 45];
+  return [
+    Math.round(light[0] + (dark[0] - light[0]) * strength),
+    Math.round(light[1] + (dark[1] - light[1]) * strength),
+    Math.round(light[2] + (dark[2] - light[2]) * strength),
+    Math.round(38 + 158 * strength),
+  ];
 }
 
 function layerColor(layerKey) {
